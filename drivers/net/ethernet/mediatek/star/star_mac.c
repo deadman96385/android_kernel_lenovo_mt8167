@@ -19,7 +19,7 @@ uintptr_t tx_skb_reserve[TX_DESC_NUM];
 uintptr_t rx_skb_reserve[RX_DESC_NUM];
 #endif
 
-u16 star_mdc_mdio_read(star_dev *dev, u32 phy_addr, u32 phy_reg)
+u16 star_mdc_mdio_read(struct star_dev *dev, u32 phy_addr, u32 phy_reg)
 {
 	u16 data;
 	u32 phy_ctl;
@@ -46,7 +46,8 @@ u16 star_mdc_mdio_read(star_dev *dev, u32 phy_addr, u32 phy_reg)
 	return data;
 	}
 
-void star_mdc_mdio_write(star_dev *dev, u32 phy_addr, u32 phy_reg, u16 value)
+void star_mdc_mdio_write(struct star_dev *dev, u32 phy_addr,
+			 u32 phy_reg, u16 value)
 {
 	u32 phy_ctl;
 	void __iomem *base = dev->base;
@@ -67,7 +68,7 @@ void star_mdc_mdio_write(star_dev *dev, u32 phy_addr, u32 phy_reg, u16 value)
 					     STAR_PHY_CTRL0_RWOK));
 }
 
-static void desc_tx_init(tx_desc *tx_desc, u32 is_eor)
+static void desc_tx_init(struct tx_desc *tx_desc, u32 is_eor)
 {
 	tx_desc->buffer = 0;
 	tx_desc->ctrl_len = TX_COWN | (is_eor ? TX_EOR : 0);
@@ -75,7 +76,7 @@ static void desc_tx_init(tx_desc *tx_desc, u32 is_eor)
 	tx_desc->reserve = 0;
 }
 
-static void desc_rx_init(rx_desc *rx_desc, u32 is_eor)
+static void desc_rx_init(struct rx_desc *rx_desc, u32 is_eor)
 {
 	rx_desc->buffer = 0;
 	rx_desc->ctrl_len = RX_COWN | (is_eor ? RX_EOR : 0);
@@ -83,7 +84,7 @@ static void desc_rx_init(rx_desc *rx_desc, u32 is_eor)
 	rx_desc->reserve = 0;
 }
 
-u32 desc_tx_empty(tx_desc *tx_desc)
+u32 desc_tx_empty(struct tx_desc *tx_desc)
 {
 	return (((tx_desc)->buffer == 0) &&
 		(((tx_desc)->ctrl_len & ~TX_EOR) == TX_COWN) &&
@@ -91,7 +92,7 @@ u32 desc_tx_empty(tx_desc *tx_desc)
 		((tx_desc)->reserve == 0));
 }
 
-u32 desc_rx_empty(rx_desc *rx_desc)
+u32 desc_rx_empty(struct rx_desc *rx_desc)
 {
 	return (((rx_desc)->buffer == 0) &&
 		(((rx_desc)->ctrl_len & ~RX_EOR) == RX_COWN) &&
@@ -99,19 +100,19 @@ u32 desc_rx_empty(rx_desc *rx_desc)
 		((rx_desc)->reserve == 0));
 }
 
-static void desc_tx_take(tx_desc *tx_desc)
+static void desc_tx_take(struct tx_desc *tx_desc)
 {
 	if (desc_tx_dma(tx_desc))
 		tx_desc->ctrl_len |= TX_COWN;
 }
 
-static void desc_rx_take(rx_desc *rx_desc)
+static void desc_rx_take(struct rx_desc *rx_desc)
 {
 	if (desc_rx_dma(rx_desc))
 		rx_desc->ctrl_len |= RX_COWN;
 }
 
-int star_dma_init(star_dev *dev, uintptr_t desc_viraddr,
+int star_dma_init(struct star_dev *dev, uintptr_t desc_viraddr,
 		  dma_addr_t desc_dmaaddrdr)
 {
 	int i;
@@ -121,8 +122,8 @@ int star_dma_init(star_dev *dev, uintptr_t desc_viraddr,
 	dev->tx_ring_size = TX_DESC_NUM;
 	dev->rx_ring_size = RX_DESC_NUM;
 
-	dev->tx_desc = (tx_desc *)desc_viraddr;
-	dev->rx_desc = (rx_desc *)dev->tx_desc + dev->tx_ring_size;
+	dev->tx_desc = (struct tx_desc *)desc_viraddr;
+	dev->rx_desc = (struct rx_desc *)dev->tx_desc + dev->tx_ring_size;
 
 	for (i = 0; i < dev->tx_ring_size; i++)
 		desc_tx_init(dev->tx_desc + i, i == dev->tx_ring_size - 1);
@@ -140,20 +141,23 @@ int star_dma_init(star_dev *dev, uintptr_t desc_viraddr,
 	star_set_reg(STAR_TX_BASE_ADDR(base), (u32)desc_dmaaddrdr);
 	star_set_reg(STAR_TX_DPTR(base), (u32)desc_dmaaddrdr);
 	star_set_reg(STAR_RX_BASE_ADDR(base),
-		     (u32)desc_dmaaddrdr + sizeof(tx_desc) * dev->tx_ring_size);
+		     (u32)desc_dmaaddrdr +
+		     sizeof(struct tx_desc) * dev->tx_ring_size);
 	star_set_reg(STAR_RX_DPTR(base),
-		     (u32)desc_dmaaddrdr + sizeof(tx_desc) * dev->tx_ring_size);
+		     (u32)desc_dmaaddrdr +
+		     sizeof(struct tx_desc) * dev->tx_ring_size);
 
 	star_intr_disable(dev);
 
 	return 0;
 }
 
-int star_dma_tx_set(star_dev *dev, u32 buffer, u32 length, uintptr_t ext_buf)
+int star_dma_tx_set(struct star_dev *dev, u32 buffer,
+		    u32 length, uintptr_t ext_buf)
 {
 	int is_tx_last;
 	int desc_idx = dev->tx_head;
-	tx_desc *tx_desc = dev->tx_desc + desc_idx;
+	struct tx_desc *tx_desc = dev->tx_desc + desc_idx;
 	u32 len = (((length < 60) ? 60 : length) & TX_LEN_MASK)
 		  << TX_LEN_OFFSET;
 
@@ -185,12 +189,12 @@ err:
 	return -1;
 }
 
-int star_dma_tx_get(star_dev *dev, u32 *buffer,
+int star_dma_tx_get(struct star_dev *dev, u32 *buffer,
 		    u32 *ctrl_len, uintptr_t *ext_buf)
 {
 	int is_tx_last;
 	int desc_idx = dev->tx_tail;
-	tx_desc *tx_desc = dev->tx_desc + desc_idx;
+	struct tx_desc *tx_desc = dev->tx_desc + desc_idx;
 
 	if (dev->tx_num == 0)
 		goto err;
@@ -224,10 +228,11 @@ err:
 	return -1;
 }
 
-int star_dma_rx_set(star_dev *dev, u32 buffer, u32 length, uintptr_t ext_buf)
+int star_dma_rx_set(struct star_dev *dev, u32 buffer,
+		    u32 length, uintptr_t ext_buf)
 {
 	int desc_idx = dev->rx_head;
-	rx_desc *rx_desc = dev->rx_desc + desc_idx;
+	struct rx_desc *rx_desc = dev->rx_desc + desc_idx;
 	int is_rx_last;
 
 	/* Error checking */
@@ -258,12 +263,12 @@ err:
 	return -1;
 }
 
-int star_dma_rx_get(star_dev *dev, u32 *buffer,
+int star_dma_rx_get(struct star_dev *dev, u32 *buffer,
 		    u32 *ctrl_len, uintptr_t *ext_buf)
 {
 	int is_rx_last;
 	int desc_idx = dev->rx_tail;
-	rx_desc *rx_desc = dev->rx_desc + desc_idx;
+	struct rx_desc *rx_desc = dev->rx_desc + desc_idx;
 
 	/* Error checking */
 	/* No buffer can be got */
@@ -300,7 +305,7 @@ err:
 	return -1;
 }
 
-void star_dma_tx_stop(star_dev *dev)
+void star_dma_tx_stop(struct star_dev *dev)
 {
 	int i;
 
@@ -309,7 +314,7 @@ void star_dma_tx_stop(star_dev *dev)
 		desc_tx_take(dev->tx_desc + i);
 }
 
-void star_dma_rx_stop(star_dev *dev)
+void star_dma_rx_stop(struct star_dev *dev)
 {
 	int i;
 
@@ -318,7 +323,7 @@ void star_dma_rx_stop(star_dev *dev)
 		desc_rx_take(dev->rx_desc + i);
 }
 
-int star_mac_init(star_dev *dev, u8 mac_addr[6])
+int star_mac_init(struct star_dev *dev, u8 mac_addr[6])
 {
 	void __iomem *base = dev->base;
 
@@ -364,7 +369,7 @@ int star_mac_init(star_dev *dev, u8 mac_addr[6])
 	return 0;
 }
 
-static void star_mib_reset(star_dev *dev)
+static void star_mib_reset(struct star_dev *dev)
 {
 	void __iomem *base = dev->base;
 
@@ -383,14 +388,14 @@ static void star_mib_reset(star_dev *dev)
 	star_get_reg(STAR_MIB_TXPAUSECOL(base));
 }
 
-int star_mib_init(star_dev *dev)
+int star_mib_init(struct star_dev *dev)
 {
 	star_mib_reset(dev);
 
 	return 0;
 }
 
-int star_phyctrl_init(star_dev *dev, u32 enable, u32 phy_addr)
+int star_phyctrl_init(struct star_dev *dev, u32 enable, u32 phy_addr)
 {
 	u32 data;
 	void __iomem *base = dev->base;
@@ -415,7 +420,7 @@ int star_phyctrl_init(star_dev *dev, u32 enable, u32 phy_addr)
 	return 0;
 }
 
-void star_set_hashbit(star_dev *dev, u32 addr, u32 value)
+void star_set_hashbit(struct star_dev *dev, u32 addr, u32 value)
 {
 	u32 data;
 	void __iomem *base = dev->base;
@@ -437,18 +442,18 @@ void star_set_hashbit(star_dev *dev, u32 addr, u32 value)
 					      STAR_HASH_CTRL_START));
 }
 
-int star_hw_init(star_dev *dev)
+int star_hw_init(struct star_dev *dev)
 {
 	star_set_reg(ETHSYS_CONFIG(dev->base),
 		     SWC_MII_MODE | EXT_MDC_MODE | MII_PAD_OE);
 	star_set_reg(MAC_CLOCK_CONFIG(dev->base),
 		     (star_get_reg(MAC_CLOCK_CONFIG(dev->base)) &
-		     (~(0xff << 0))) | MDC_CLK_DIV_10);
+		     (~(0xff << 0))) | MDC_CLK_DIV_50);
 
 	return 0;
 }
 
-void star_link_status_change(star_dev *dev)
+void star_link_status_change(struct star_dev *dev)
 {
 	u32 val, speed;
 
@@ -470,15 +475,16 @@ void star_link_status_change(star_dev *dev)
 				(val & STAR_PHY_CTRL1_STA_TXFC) ? "On" : "Off",
 				(val & STAR_PHY_CTRL1_STA_RXFC) ? "On" : "Off");
 		} else if (dev->link_up == 0UL) {
-			netif_carrier_off(((star_private *)dev->star_prv)->dev);
+			netif_carrier_off(((struct star_private *)
+					  dev->star_prv)->dev);
 		}
 	}
 
 	if (dev->link_up)
-		netif_carrier_on(((star_private *)dev->star_prv)->dev);
+		netif_carrier_on(((struct star_private *)dev->star_prv)->dev);
 }
 
-void star_nic_pdset(star_dev *dev, bool flag)
+void star_nic_pdset(struct star_dev *dev, bool flag)
 {
 #define MAX_NICPDRDY_RETRY  10000
 	u32 data, retry = 0;
@@ -506,7 +512,7 @@ void star_nic_pdset(star_dev *dev, bool flag)
 	}
 }
 
-void star_config_wol(star_dev *star_dev, bool enable)
+void star_config_wol(struct star_dev *star_dev, bool enable)
 {
 	STAR_PR_INFO("[%s]%s wol\n", __func__,
 		     enable ? "enable" : "disable");
@@ -526,7 +532,7 @@ void star_config_wol(star_dev *star_dev, bool enable)
 	}
 }
 
-void star_switch_to_rmii_mode(star_dev *star_dev)
+void star_switch_to_rmii_mode(struct star_dev *star_dev)
 {
 	u32 reg_val;
 

@@ -65,8 +65,8 @@ static ssize_t proc_reg_write(struct file *file,
 	u16 phy_val;
 	u32 i, mac_val, len = 0, address = 0, value = 0;
 	struct net_device *dev;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	tmp = kmalloc(count + 1, GFP_KERNEL);
 	buf = tmp;
@@ -171,7 +171,7 @@ static const struct file_operations star_mac_reg_ops = {
 static int get_wol_status(struct seq_file *seq, void *v)
 {
 	struct net_device *dev;
-	star_private *star_prv;
+	struct star_private *star_prv;
 
 	dev = star_get_net_device();
 	if (!dev) {
@@ -193,7 +193,7 @@ static ssize_t wol_write(struct file *file, const char __user *buffer,
 			 size_t count, loff_t *data)
 {
 	struct net_device *dev;
-	star_private *star_prv;
+	struct star_private *star_prv;
 	char *buf;
 
 	buf = kmalloc(count + 1, GFP_KERNEL);
@@ -230,7 +230,7 @@ static const struct file_operations star_wol_ops = {
 static int get_wol_flag_status(struct seq_file *seq, void *v)
 {
 	struct net_device *dev;
-	star_private *star_prv;
+	struct star_private *star_prv;
 
 	dev = star_get_net_device();
 	if (!dev) {
@@ -248,8 +248,8 @@ static ssize_t wol_flag_write(struct file *file, const char __user *buffer,
 			      size_t count, loff_t *data)
 {
 	struct net_device *dev;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 	char *buf;
 
 	buf = kmalloc(count + 1, GFP_KERNEL);
@@ -308,8 +308,8 @@ static ssize_t proc_dump_net_stat(struct file *file,
 				  char __user *buf, size_t count, loff_t *ppos)
 {
 	struct net_device *dev;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	dev = star_get_net_device();
 	if (!dev) {
@@ -349,8 +349,8 @@ static ssize_t proc_clear_net_stat(struct file *file,
 {
 	char *buf;
 	struct net_device *ndev;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	buf = kmalloc(count + 1, GFP_KERNEL);
 	if (copy_from_user(buf, buffer, count))

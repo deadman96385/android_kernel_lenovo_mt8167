@@ -160,6 +160,8 @@ struct mdp_pmqos_record {
 #define MDP_THREAD_START CMDQ_DYNAMIC_THREAD_ID_START
 #endif
 
+#define MTK_CMDQ_PMQOS
+
 /* MDP common kernel logic */
 
 void cmdq_mdp_fix_command_scenario_for_user_space(

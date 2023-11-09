@@ -13,6 +13,7 @@
 #ifndef USB_SWITCH_H
 #define USB_SWITCH_H
 
+#if (!IS_ENABLED(CONFIG_TCPC_MT6392))
 struct usb3_switch {
 	int sel_gpio;
 	int en_gpio;
@@ -57,9 +58,10 @@ struct usbtypc {
 	struct usb3_switch *u3_sw;
 	struct usb_redriver *u_rd;
 };
-
-#endif	/* USB_SWITCH_H */
+#endif /* !CONFIG_TCPC_MT6392*/
 
 extern void usb3_switch_ctrl_sel(int sel);
 extern void usb3_switch_ctrl_en(bool en);
 extern void usb3_switch_dps_en(bool en);
+
+#endif	/* USB_SWITCH_H */

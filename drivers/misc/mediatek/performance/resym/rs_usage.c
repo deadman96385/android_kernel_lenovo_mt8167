@@ -207,17 +207,27 @@ RSU_DEBUGFS_ENTRY(systrace_mask);
 
 static void rsu_cpu_update_pwd_tbl(void)
 {
+#ifdef CONFIG_MTK_UNIFY_POWER
 	int cluster, opp;
 	struct cpumask cluster_cpus;
 	int cpu;
 	const struct sched_group_energy *core_energy;
 	unsigned long long temp = 0ULL;
 	unsigned int temp2;
+	bool rev = (mt_cpufreq_get_freq_by_idx(0, NR_FREQ_CPU - 1) >
+		mt_cpufreq_get_freq_by_idx(0, 0)) ? true : false;
 
 	for (cluster = 0; cluster < nr_cpuclusters; cluster++) {
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			cpucluster_info[cluster].power[opp] =
-				mt_cpufreq_get_freq_by_idx(cluster, opp);
+			if (rev) {
+				cpucluster_info[cluster].power[opp] =
+					mt_cpufreq_get_freq_by_idx(cluster,
+						NR_FREQ_CPU - 1 - opp);
+			} else {
+				cpucluster_info[cluster].power[opp] =
+					mt_cpufreq_get_freq_by_idx(cluster,
+						opp);
+			}
 
 			if (rs_cpumips_isdiff()) {
 				arch_get_cluster_cpus(&cluster_cpus, cluster);
@@ -240,6 +250,7 @@ static void rsu_cpu_update_pwd_tbl(void)
 			}
 		}
 	}
+#endif
 }
 
 static void rsu_notify_cpufreq(int cid, unsigned long freq)
@@ -274,6 +285,8 @@ static int rsu_get_cpu_usage(__u32 pid)
 	int i;
 	int opp;
 	int ret = 0;
+	struct cpufreq_policy *policy;
+
 
 	ceiling_idx =
 		kcalloc(nr_cpuclusters, sizeof(unsigned int), GFP_KERNEL);
@@ -282,7 +295,19 @@ static int rsu_get_cpu_usage(__u32 pid)
 		return -1;
 
 	for (i = 0; i < nr_cpuclusters; i++) {
-		clus_max_idx = mt_ppm_userlimit_freq_limit_by_others(i);
+
+		policy = cpufreq_cpu_get(0);
+
+		for (i = 0 ; i < nr_cpuclusters; i++) {
+			for (opp = 0; opp < NR_FREQ_CPU; opp++)
+				if (policy->max ==
+					mt_cpufreq_get_freq_by_idx(i, opp)) {
+					clus_max_idx = opp;
+					break;
+				}
+		}
+
+		cpufreq_cpu_put(policy);
 
 		if (rs_cpumips_isdiff())
 			ceiling_idx[i] =

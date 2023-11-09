@@ -63,9 +63,11 @@ static int __init mrdump_key_probe(struct platform_device *pdev)
 	enum MRDUMP_RST_SOURCE source = MRDUMP_EINT;
 #endif
 
+#ifdef CONFIG_MTK_WATCHDOG_COMMON
 #ifdef CONFIG_MTK_PMIC_COMMON
 	enum MRDUMP_LONG_PRESS_MODE long_press_mode
 			= LONG_PRESS_NONE;
+#endif
 #endif
 	struct device_node *node;
 	const char *source_str, *interrupts;
@@ -159,11 +161,11 @@ static void mrdump_key_shutdown(struct platform_device *pdev)
 #ifdef CONFIG_MTK_WATCHDOG_COMMON
 	int res;
 	struct wd_api *wd_api = NULL;
-#endif
 
 #ifdef CONFIG_MTK_PMIC_COMMON
 	pr_notice("restore pmic long_press_mode = SHUTDOWN\n");
 	pmic_enable_smart_reset(0, 0);
+#endif
 #endif
 
 #ifdef CONFIG_MTK_WATCHDOG_COMMON

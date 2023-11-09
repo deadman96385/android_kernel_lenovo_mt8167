@@ -2483,6 +2483,7 @@ static int musb_init_controller
 		status = -ENOMEM;
 		goto fail0;
 	}
+	musb->phy_base = ctrlp;
 
 	mtk_musb = musb;
 	sema_init(&musb->musb_lock, 1);
@@ -2640,6 +2641,10 @@ static int musb_init_controller
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 	mt_usb_dual_role_init(musb);
 #endif
+	#elif defined(CONFIG_TCPC_MT6392)
+         #ifdef CONFIG_DUAL_ROLE_USB_INTF
+            mt_usb_dual_role_init(musb);
+      #endif	
 #endif
 
 	/*initial done, turn off usb */

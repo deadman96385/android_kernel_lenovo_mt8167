@@ -33,7 +33,7 @@
 
 #include "xhci.h"
 #include "xhci-mtk.h"
-
+#include "xhci-mtk-test.h"
 /* ip_pw_ctrl0 register */
 #define CTRL0_IP_SW_RST	BIT(0)
 
@@ -702,8 +702,10 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	mtk->sys_clk = devm_clk_get(dev, "sys_ck");
 	if (IS_ERR(mtk->sys_clk)) {
-		dev_err(dev, "fail to get sys_ck\n");
-		return PTR_ERR(mtk->sys_clk);
+		if (PTR_ERR(mtk->sys_clk) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+
+		mtk->sys_clk = NULL;
 	}
 
 	/*
@@ -836,6 +838,10 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	if (ret)
 		goto dealloc_usb2_hcd;
 
+	#if IS_ENABLED(CONFIG_USB_MTK_HQA_TEST)
+		mu3h_hqa_create_attr(dev);
+	#endif
+
 	xhci_mtk_dbg_init(mtk);
 
 #if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
@@ -843,6 +849,7 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	device_set_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev, 1);
 #endif
 	mtk_xhci_wakelock_lock(mtk);
+
 	return 0;
 
 dealloc_usb2_hcd:
@@ -882,6 +889,10 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	struct usb_hcd  *shared_hcd = xhci->shared_hcd;
 
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
+
+	#if IS_ENABLED(CONFIG_USB_MTK_HQA_TEST)
+		mu3h_hqa_remove_attr(&dev->dev);
+	#endif
 
 	usb_remove_hcd(shared_hcd);
 	xhci->shared_hcd = NULL;

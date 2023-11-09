@@ -321,7 +321,10 @@ static int disp_pwm_config_init(enum DISP_MODULE_ENUM module,
 	(0x3ff << 16));
 
 	/* 1024 levels */
-	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 1023, 0x3ff);
+	//shd modify, fix lcd-backlight blink by div on mt8167.dtsi, the light not change if high-width > periord, donot change this!
+	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 0x3ff, 0x3ff);
+	//PWM_MSG("[pwm period modify],reg[0x%08x] = 0x%08x, reg[0x%08x] = 0x%08x", 
+	//	(reg_base + DISP_PWM_CON_0_OFF), PWM_REG_GET(reg_base + DISP_PWM_CON_0_OFF), (reg_base + DISP_PWM_CON_1_OFF), PWM_REG_GET(reg_base + DISP_PWM_CON_1_OFF));
 	/* We don't init the backlight here until AAL/Android give */
 #endif
 	return 0;
@@ -607,6 +610,8 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 			level_1024 = 0;
 
 		level_1024 = disp_pwm_level_remap(id, level_1024);
+
+		printk("[shd-pwm]%s,old_pwm=%d,level_1024=%d,max_level_1024=%d\n", __func__, old_pwm, level_1024, max_level_1024);
 
 		reg_base = pwm_get_reg_base(id);
 

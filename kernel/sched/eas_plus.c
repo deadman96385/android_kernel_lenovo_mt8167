@@ -89,10 +89,8 @@ update_system_overutilized(struct lb_env *env)
 
 			group_util += cpu_util(i);
 			if (cpu_overutilized(i)) {
-				if (capacity_orig_of(i) < max_capacity) {
-					intra_overutil = true;
-					break;
-				}
+				intra_overutil = true;
+				break;
 			}
 		}
 

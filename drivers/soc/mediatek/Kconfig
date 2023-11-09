@@ -21,7 +21,6 @@ config MTK_PMIC_WRAP
 config MTK_SCPSYS
 	bool "MediaTek SCPSYS Support"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
-	default ARCH_MEDIATEK
 	select REGMAP
 	select MTK_INFRACFG
 	select PM_GENERIC_DOMAINS if PM
@@ -32,11 +31,21 @@ config MTK_SCPSYS
 config MTK_SCPSYS_MT8167
 	bool "SCPSYS Support MediaTek MT8167"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
-	select SOC_MEDIATEK
 	select REGMAP
 	select MTK_INFRACFG
 	select PM_GENERIC_DOMAINS
 	default y if MACH_MT8167 && !FPGA_EARLY_PORTING
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
+config MTK_SCPSYS_MT8168
+	bool "SCPSYS Support MediaTek MT8168"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select MTK_SCPSYS
+	default y if MACH_MT8168 && !FPGA_EARLY_PORTING
 	help
 	  Say yes here to add support for the MediaTek SCPSYS power domain
 	  driver.

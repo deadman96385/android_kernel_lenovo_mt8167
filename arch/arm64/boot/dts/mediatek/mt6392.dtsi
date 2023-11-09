@@ -119,6 +119,8 @@
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-enable-ramp-delay = <264>;
+				regulator-always-on;
+				regulator-boot-on;
 			};
 
 			mt6392_vio28_reg: ldo_vio28 {
@@ -182,6 +184,8 @@
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-enable-ramp-delay = <264>;
+				regulator-always-on;  // ADD for wifi
+				regulator-boot-on;
 			};
 
 			mt6392_vcamaf_reg: ldo_vcamaf {
@@ -219,6 +223,8 @@
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-enable-ramp-delay = <264>;
+				regulator-always-on;
+				regulator-boot-on;
 			};
 
 			mt6392_vm25_reg: ldo_vm25 {

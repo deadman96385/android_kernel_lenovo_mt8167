@@ -81,8 +81,7 @@ struct smi_ipi_data_s {
 		} logger;
 	} u;
 };
-
-/* MMDVFS */
+/*
 enum mmdvfs_voltage_enum {
 	MMDVFS_VOLTAGE_DEFAULT,
 	MMDVFS_VOLTAGE_0 = MMDVFS_VOLTAGE_DEFAULT,
@@ -129,7 +128,6 @@ struct MTK_MMDVFS_CMD {
 #define MTK_MMDVFS_CMD_TYPE_VPU_STEP_SET 10
 #define MTK_MMDVFS_CMD_TYPE_VPU_STEP_GET 11
 
-
 enum MTK_SMI_BWC_INFO_ID {
 	SMI_BWC_INFO_CON_PROFILE = 0,
 	SMI_BWC_INFO_SENSOR_SIZE,
@@ -151,7 +149,7 @@ struct MTK_SMI_BWC_INFO_SET {
 
 
 struct MTK_SMI_BWC_MM_INFO {
-	unsigned int flag;	/* Reserved */
+	unsigned int flag;
 	int concurrent_profile;
 	int sensor_size[2];
 	int video_record_size[2];
@@ -176,5 +174,5 @@ struct MTK_MMDVFS_QOS_CMD {
 #define MTK_IOC_MMDVFS_QOS_CMD \
 	_IOW('O', 89, struct MTK_MMDVFS_QOS_CMD)
 
-
+*/
 #endif

@@ -17,13 +17,17 @@
 #include "cmdq_helper_ext.h"
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
-#include "tee_client_api.h"
 #include "cmdq_sec_iwc_common.h"
+#ifndef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+#include "tee_client_api.h"
 #if defined(CMDQ_GP_SUPPORT)
 #include "cmdq_sec_gp.h"
 #else
 #include "cmdq_sec_trustonic.h"
 #endif
+#else
+#include "cmdq_sec_trustzone.h"
+#endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT */
 #endif /* CMDQ_SECURE_PATH_SUPPORT */
 
 

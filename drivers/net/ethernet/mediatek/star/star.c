@@ -75,10 +75,10 @@ static struct sk_buff *get_skb(struct net_device *ndev)
 }
 
 /* pre-allocate Rx buffer */
-static int alloc_rx_skbs(star_dev *star_dev)
+static int alloc_rx_skbs(struct star_dev *star_dev)
 {
 	int retval;
-	star_private *star_prv = star_dev->star_prv;
+	struct star_private *star_prv = star_dev->star_prv;
 
 	do {
 		u32 dmaBuf;
@@ -119,7 +119,7 @@ static int alloc_rx_skbs(star_dev *star_dev)
 }
 
 /* Free Tx descriptor and skbs not xmited */
-static void free_tx_skbs(star_dev *star_dev)
+static void free_tx_skbs(struct star_dev *star_dev)
 {
 	int retval;
 	uintptr_t extBuf;
@@ -140,7 +140,7 @@ static void free_tx_skbs(star_dev *star_dev)
 	} while (retval >= 0);
 }
 
-static void free_rx_skbs(star_dev *star_dev)
+static void free_rx_skbs(struct star_dev *star_dev)
 {
 	int retval;
 	uintptr_t  extBuf;
@@ -163,13 +163,13 @@ static void free_rx_skbs(star_dev *star_dev)
 	} while (retval >= 0);
 }
 
-static int receive_one_packet(star_dev *star_dev, bool napi)
+static int receive_one_packet(struct star_dev *star_dev, bool napi)
 {
 	int retval;
 	uintptr_t extBuf;
 	u32 ctrl_len, len, dmaBuf;
 	struct sk_buff *curr_skb, *new_skb;
-	star_private *star_prv = star_dev->star_prv;
+	struct star_private *star_prv = star_dev->star_prv;
 	struct net_device *ndev = star_prv->dev;
 
 	retval = star_dma_rx_get(star_dev, &dmaBuf, &ctrl_len, &extBuf);
@@ -196,7 +196,7 @@ static int receive_one_packet(star_dev *star_dev, bool napi)
 			/* send the packet up protocol stack */
 			(napi ? netif_receive_skb : netif_rx)(curr_skb);
 			/* set the time of the last receive */
-			ndev->last_rx = jiffies;
+			/*ndev->last_rx = jiffies;*/
 			star_dev->stats.rx_packets++;
 			star_dev->stats.rx_bytes += len;
 		} else {
@@ -223,8 +223,9 @@ static int receive_one_packet(star_dev *star_dev, bool napi)
 static int star_poll(struct napi_struct *napi, int budget)
 {
 	int retval, npackets;
-	star_private *star_prv = container_of(napi, star_private, napi);
-	star_dev *star_dev = &star_prv->star_dev;
+	struct star_private *star_prv = container_of(napi,
+		struct star_private, napi);
+	struct star_dev *star_dev = &star_prv->star_dev;
 
 	for (npackets = 0; npackets < budget; npackets++) {
 		retval = receive_one_packet(star_dev, true);
@@ -247,8 +248,8 @@ static int star_poll(struct napi_struct *napi, int budget)
 /* star tx use tasklet */
 static void star_dsr(unsigned long data)
 {
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 	struct net_device *ndev = (struct net_device *)data;
 
 	STAR_PR_DEBUG("%s(%s)\n", __func__, ndev->name);
@@ -266,8 +267,8 @@ static irqreturn_t star_isr(int irq, void *dev_id)
 {
 	u32 intrStatus;
 	u32 intr_clr_msk = 0xffffffff;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 	struct net_device *dev = (struct net_device *)dev_id;
 
 	intr_clr_msk &= ~STAR_INT_STA_RXC;
@@ -354,8 +355,8 @@ static irqreturn_t star_eint_isr(int irq, void *dev_id)
 #ifdef CONFIG_NET_POLL_CONTROLLER
 static void star_netpoll(struct net_device *dev)
 {
-	star_private *tp = netdev_priv(dev);
-	star_dev *pdev = tp->mii.dev;
+	struct star_private *tp = netdev_priv(dev);
+	struct star_dev *pdev = tp->mii.dev;
 
 	disable_irq(pdev->irq);
 	star_isr(pdev->irq, dev);
@@ -366,8 +367,8 @@ static void star_netpoll(struct net_device *dev)
 static int star_mac_enable(struct net_device *ndev)
 {
 	int intrStatus;
-	star_private *star_prv = netdev_priv(ndev);
-	star_dev *star_dev = &star_prv->star_dev;
+	struct star_private *star_prv = netdev_priv(ndev);
+	struct star_dev *star_dev = &star_prv->star_dev;
 
 	STAR_PR_INFO("%s(%s)\n", __func__, ndev->name);
 
@@ -394,7 +395,7 @@ static int star_mac_enable(struct net_device *ndev)
 	}
 
 	STAR_PR_INFO("request interrupt vector=%d\n", ndev->irq);
-	if (request_irq(ndev->irq, star_isr, IRQF_TRIGGER_FALLING,
+	if (request_irq(ndev->irq, star_isr, IRQF_TRIGGER_HIGH,
 			ndev->name, ndev) != 0) {
 		STAR_PR_ERR("interrupt %d request fail\n", ndev->irq);
 		return -ENODEV;
@@ -430,8 +431,8 @@ static int star_mac_enable(struct net_device *ndev)
 static void star_mac_disable(struct net_device *ndev)
 {
 	int intrStatus;
-	star_private *star_prv = netdev_priv(ndev);
-	star_dev *star_dev = &star_prv->star_dev;
+	struct star_private *star_prv = netdev_priv(ndev);
+	struct star_dev *star_dev = &star_prv->star_dev;
 
 	STAR_PR_INFO("%s(%s)\n", __func__, ndev->name);
 
@@ -460,7 +461,7 @@ static void star_mac_disable(struct net_device *ndev)
 static int star_open(struct net_device *ndev)
 {
 	int ret;
-	star_private *star_prv = netdev_priv(ndev);
+	struct star_private *star_prv = netdev_priv(ndev);
 
 	STAR_PR_INFO("%s(%s)\n", __func__, ndev->name);
 
@@ -483,7 +484,7 @@ static int star_open(struct net_device *ndev)
 
 static int star_stop(struct net_device *ndev)
 {
-	star_private *star_prv = netdev_priv(ndev);
+	struct star_private *star_prv = netdev_priv(ndev);
 
 	STAR_PR_INFO("enter %s\n", __func__);
 	if (!star_prv->opened) {
@@ -502,8 +503,8 @@ static int star_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	u32 dmaBuf;
 	unsigned long flags;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	star_prv = netdev_priv(ndev);
 	star_dev = &star_prv->star_dev;
@@ -531,7 +532,7 @@ static int star_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		netif_stop_queue(ndev);
 	spin_unlock_irqrestore(&star_prv->lock, flags);
 	star_dma_tx_resume(star_dev);
-	ndev->trans_start = jiffies;
+	/*ndev->trans_start = jiffies;*/
 
 	return NETDEV_TX_OK;
 }
@@ -539,8 +540,8 @@ static int star_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 static void star_finish_xmit(struct net_device *ndev)
 {
 	int retval, wake = 0;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	star_prv = netdev_priv(ndev);
 	star_dev = &star_prv->star_dev;
@@ -579,8 +580,8 @@ static void star_finish_xmit(struct net_device *ndev)
 
 static struct net_device_stats *star_get_stats(struct net_device *ndev)
 {
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	STAR_PR_DEBUG("enter %s\n", __func__);
 
@@ -596,8 +597,8 @@ static struct net_device_stats *star_get_stats(struct net_device *ndev)
 static void star_set_multicast_list(struct net_device *ndev)
 {
 	unsigned long flags;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	STAR_PR_DEBUG("enter %s\n", __func__);
 
@@ -633,7 +634,7 @@ static void star_set_multicast_list(struct net_device *ndev)
 
 static int star_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
-	star_private *star_prv = netdev_priv(dev);
+	struct star_private *star_prv = netdev_priv(dev);
 	unsigned long flags;
 	int rc = 0;
 
@@ -664,8 +665,8 @@ static void star_tx_timeout(struct net_device *ndev)
 
 static int mdcmdio_read(struct net_device *dev, int phy_id, int location)
 {
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	star_prv = netdev_priv(dev);
 	star_dev = &star_prv->star_dev;
@@ -676,8 +677,8 @@ static int mdcmdio_read(struct net_device *dev, int phy_id, int location)
 static void mdcmdio_write(struct net_device *dev, int phy_id,
 			  int location, int val)
 {
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 
 	star_prv = netdev_priv(dev);
 	star_dev = &star_prv->star_dev;
@@ -705,7 +706,7 @@ static int starmac_get_settings(struct net_device *ndev,
 {
 	int ret;
 	unsigned long flags;
-	star_private *star_prv = netdev_priv(ndev);
+	struct star_private *star_prv = netdev_priv(ndev);
 
 	spin_lock_irqsave(&star_prv->lock, flags);
 	ret = mii_ethtool_gset(&star_prv->mii, cmd);
@@ -719,7 +720,7 @@ static int starmac_set_settings(struct net_device *ndev,
 {
 	int ret;
 	unsigned long flags;
-	star_private *star_prv = netdev_priv(ndev);
+	struct star_private *star_prv = netdev_priv(ndev);
 
 	spin_lock_irqsave(&star_prv->lock, flags);
 	ret = mii_ethtool_sset(&star_prv->mii, cmd);
@@ -732,7 +733,7 @@ static int starmac_nway_reset(struct net_device *ndev)
 {
 	int ret;
 	unsigned long flags;
-	star_private *star_prv = netdev_priv(ndev);
+	struct star_private *star_prv = netdev_priv(ndev);
 
 	spin_lock_irqsave(&star_prv->lock, flags);
 	ret = mii_nway_restart(&star_prv->mii);
@@ -745,7 +746,7 @@ static u32 starmac_get_link(struct net_device *ndev)
 {
 	u32 ret;
 	unsigned long flags;
-	star_private *star_prv = netdev_priv(ndev);
+	struct star_private *star_prv = netdev_priv(ndev);
 
 	spin_lock_irqsave(&star_prv->lock, flags);
 	ret = mii_link_ok(&star_prv->mii);
@@ -779,12 +780,12 @@ static const struct ethtool_ops starmac_ethtool_ops = {
 	.get_link = starmac_get_link,
 };
 
-int star_get_wol_flag(star_private *star_prv)
+int star_get_wol_flag(struct star_private *star_prv)
 {
 	return star_prv->support_wol;
 }
 
-void star_set_wol_flag(star_private *star_prv, bool flag)
+void star_set_wol_flag(struct star_private *star_prv, bool flag)
 {
 	star_prv->support_wol = flag;
 }
@@ -792,8 +793,8 @@ void star_set_wol_flag(star_private *star_prv, bool flag)
 static int  star_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct net_device *netdev = platform_get_drvdata(pdev);
-	star_private *star_prv = netdev_priv(netdev);
-	star_dev *star_dev = &star_prv->star_dev;
+	struct star_private *star_prv = netdev_priv(netdev);
+	struct star_dev *star_dev = &star_prv->star_dev;
 
 	STAR_PR_INFO("entered %s, line(%d)\n", __func__, __LINE__);
 
@@ -807,7 +808,6 @@ static int  star_suspend(struct platform_device *pdev, pm_message_t state)
 			regulator_disable(star_prv->phy_regulator);
 		} else if (star_prv->wol == MAC_WOL) {
 			STAR_PR_INFO("support mac wol.\n");
-			spm_set_sleep_26m_req(1);
 			star_config_wol(star_dev, true);
 		} else if (star_prv->wol == PHY_WOL) {
 			STAR_PR_INFO("support phy wol.\n");
@@ -824,8 +824,8 @@ static int  star_suspend(struct platform_device *pdev, pm_message_t state)
 static int star_resume(struct platform_device *pdev)
 {
 	struct net_device *netdev = platform_get_drvdata(pdev);
-	star_private *star_prv = netdev_priv(netdev);
-	star_dev *star_dev = &star_prv->star_dev;
+	struct star_private *star_prv = netdev_priv(netdev);
+	struct star_dev *star_dev = &star_prv->star_dev;
 	int ret;
 
 	STAR_PR_INFO("entered %s(%s)\n", __func__, netdev->name);
@@ -858,7 +858,6 @@ static int star_resume(struct platform_device *pdev)
 		} else if (star_prv->wol == MAC_WOL) {
 			STAR_PR_INFO("support mac wol.\n");
 			star_config_wol(star_dev, false);
-			spm_set_sleep_26m_req(0);
 		} else if (star_prv->wol == PHY_WOL) {
 			STAR_PR_INFO("support phy wol.\n");
 			if (star_dev->phy_ops->wol_disable)
@@ -875,15 +874,15 @@ static int star_resume(struct platform_device *pdev)
 static int star_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	star_private *star_prv;
-	star_dev *star_dev;
+	struct star_private *star_prv;
+	struct star_dev *star_dev;
 	struct net_device *netdev;
 	struct device_node *np;
 	const char *mac_addr;
 
 	STAR_PR_INFO("%s entered\n", __func__);
 
-	netdev = alloc_etherdev(sizeof(star_private));
+	netdev = alloc_etherdev(sizeof(struct star_private));
 	if (!netdev)
 		return -ENOMEM;
 
@@ -893,7 +892,7 @@ static int star_probe(struct platform_device *pdev)
 	SET_NETDEV_DEV(netdev, &pdev->dev);
 
 	star_prv = netdev_priv(netdev);
-	memset(star_prv, 0, sizeof(star_private));
+	memset(star_prv, 0, sizeof(struct star_private));
 	star_prv->dev = netdev;
 	/* defalt close eth */
 	star_prv->opened = false;
@@ -948,6 +947,7 @@ static int star_probe(struct platform_device *pdev)
 		goto err_free_netdev;
 	}
 
+#ifdef PHY_POWER_BY_PMIC_REG
 	star_prv->phy_regulator = devm_regulator_get(&pdev->dev,
 						     "eth-regulator");
 	ret = regulator_set_voltage(star_prv->phy_regulator,
@@ -962,6 +962,7 @@ static int star_probe(struct platform_device *pdev)
 		STAR_PR_ERR("failed to regulator_enable(%d)\n", ret);
 		return ret;
 	}
+#endif
 
 	star_dev->base = of_iomap(np, 0);
 	if (!star_dev->base) {
@@ -1095,8 +1096,8 @@ err_free_netdev:
 static int star_remove(struct platform_device *pdev)
 {
 	struct net_device *netdev = platform_get_drvdata(pdev);
-	star_private *star_prv = netdev_priv(netdev);
-	star_dev *star_dev = &star_prv->star_dev;
+	struct star_private *star_prv = netdev_priv(netdev);
+	struct star_dev *star_dev = &star_prv->star_dev;
 
 	star_exit_procfs();
 

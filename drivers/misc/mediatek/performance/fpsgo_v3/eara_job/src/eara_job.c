@@ -1102,6 +1102,8 @@ static void get_pwr_tbl(void)
 	unsigned long long temp = 0ULL;
 	unsigned int temp2;
 	int cluster_num = 2;
+	bool rev = (mt_cpufreq_get_freq_by_idx(0, NR_FREQ_CPU - 1) >
+		mt_cpufreq_get_freq_by_idx(0, 0)) ? true : false;
 
 #if API_READY
 	cobra_tbl = ppm_cobra_pass_tbl();
@@ -1113,8 +1115,15 @@ static void get_pwr_tbl(void)
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			cpu_dvfs[cluster].freq[opp] =
-				mt_cpufreq_get_freq_by_idx(cluster, opp);
+			if (rev) {
+				cpu_dvfs[cluster].freq[opp] =
+					mt_cpufreq_get_freq_by_idx(cluster,
+						NR_FREQ_CPU - 1 - opp);
+			} else {
+				cpu_dvfs[cluster].freq[opp] =
+					mt_cpufreq_get_freq_by_idx(cluster,
+						opp);
+			}
 
 			arch_get_cluster_cpus(&cluster_cpus, cluster);
 

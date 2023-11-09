@@ -21,6 +21,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/cpufreq.h>
 
 #include "cpu_ctrl.h"
 #include "boost_ctrl.h"
@@ -54,9 +55,10 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 	struct ppm_limit_data *final_freq;
 	int retval = 0;
 	int i, j, len = 0, len1 = 0;
-	char msg[LOG_BUF_SIZE];
+	char msg[LOG_BUF_SIZE * 2];
 	char msg1[LOG_BUF_SIZE];
-
+	struct cpufreq_policy **policy;
+	struct cpumask cpus_mask;
 
 	mutex_lock(&boost_freq);
 
@@ -165,10 +167,38 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 	if (!cfp_init_ret)
 		cpu_ctrl_cfp(final_freq);
 	else
-		mt_ppm_userlimit_cpu_freq(perfmgr_clusters, final_freq);
-#else
-	mt_ppm_userlimit_cpu_freq(perfmgr_clusters, final_freq);
 #endif
+	{
+		policy = kcalloc(perfmgr_clusters,
+			sizeof(struct cpufreq_policy *), GFP_KERNEL);
+
+		if (!policy)
+			return -ENOMEM;
+
+		for_each_perfmgr_clusters(i) {
+			arch_get_cluster_cpus(&cpus_mask, i);
+			policy[i] = cpufreq_cpu_get(
+				cpumask_first(&cpus_mask));
+
+			if (final_freq[i].min == -1)
+				policy[i]->user_policy.min =
+					policy[i]->cpuinfo.min_freq;
+			else
+				policy[i]->user_policy.min =
+					final_freq[i].min;
+
+			if (final_freq[i].max == -1)
+				policy[i]->user_policy.max =
+					policy[i]->cpuinfo.max_freq;
+			else
+				policy[i]->user_policy.max =
+					final_freq[i].max;
+
+			cpufreq_cpu_put(policy[i]);
+			cpufreq_update_policy(cpumask_first(&cpus_mask));
+		}
+	}
+
 
 ret_update:
 	kfree(final_freq);

@@ -23,9 +23,9 @@
 #define CMDQ_SEC_SHARED_OP_OFFSET (0x300)
 
 /* commanad buffer & metadata */
-#define CMDQ_TZ_CMD_BLOCK_SIZE	 (16 * 1024)
+#define CMDQ_TZ_CMD_BLOCK_SIZE	 (32 * 1024)
 
-#define CMDQ_IWC_MAX_CMD_LENGTH (CMDQ_TZ_CMD_BLOCK_SIZE / 4)
+#define CMDQ_IWC_MAX_CMD_LENGTH (32 * 1024 / 4)
 
 #define CMDQ_IWC_MAX_ADDR_LIST_LENGTH (30)
 
@@ -34,9 +34,9 @@
 #define CMDQ_SEC_MESSAGE_INST_LEN (8)
 #define CMDQ_SEC_DISPATCH_LEN (8)
 
-#define CMDQ_SEC_ISP_CQ_SIZE	(0x1000)	/* 4k */
+#define CMDQ_SEC_ISP_CQ_SIZE	(0x10000)	/* 64k */
 #define CMDQ_SEC_ISP_VIRT_SIZE	(0xC000)	/* 24k */
-#define CMDQ_SEC_ISP_TILE_SIZE	(0x10000)	/* 64k */
+#define CMDQ_SEC_ISP_TILE_SIZE	(0x40000)	/* 262k */
 #define CMDQ_SEC_ISP_BPCI_SIZE	(64)		/* 64 byte */
 #define CMDQ_SEC_ISP_LSCI_SIZE	(24576)		/* 24576 byte */
 #define CMDQ_SEC_ISP_LCEI_SIZE	(520200)	/* MAX: 510x510x2 byte */
@@ -146,12 +146,25 @@ struct iwcCmdqSystraceLog_t {
 	uint64_t endTime;	/* end timestamp */
 };
 
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+/* tablet use */
+enum CMDQ_IWC_DISP_MODE {
+	CMDQ_IWC_DISP_NON_SUPPORTED_MODE = 0,
+	CMDQ_IWC_DISP_SINGLE_MODE = 1,
+	CMDQ_IWC_DISP_VIDEO_MODE = 2,
+	CMDQ_IWC_MDP_USER_MODE = 3,
+};
+#endif
+
 struct iwcCmdqMetadata_t {
 	uint32_t addrListLength;
 	struct iwcCmdqAddrMetadata_t addrList[CMDQ_IWC_MAX_ADDR_LIST_LENGTH];
 
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+	uint32_t secMode;
+#endif
 };
 
 struct iwcCmdqSectraceBuffer_t {
@@ -189,10 +202,17 @@ struct iwcCmdqMetaBuf {
 struct iwcCmdqSecIspMeta {
 	/* ISP share memory buffer */
 	struct iwcCmdqMetaBuf ispBufs[CMDQ_IWC_ISP_META_CNT];
+
 	uint64_t CqSecHandle;
 	uint32_t CqSecSize;
-	uint32_t CqDesOft;
-	uint32_t CqVirtOft;
+	union {
+		uint32_t CqDesOft;		// isp 5.0
+		uint32_t CQVirtSecBufHdl;	// isp 3.0
+	};
+	union {
+		uint32_t CqVirtOft;		// isp 5.0
+		uint32_t CQVirtSecBufSize;	// isp 3.0
+	};
 	uint64_t TpipeSecHandle;
 	uint32_t TpipeSecSize;
 	uint32_t TpipeOft;
@@ -237,8 +257,12 @@ struct iwcCmdqCommand_t {
 	uint64_t readback_pa;
 
 	/* ISP share memory buffer */
-	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
-	uint32_t isp_lcei_size;
+	uint32_t isp_cq_desc[CMDQ_SEC_ISP_CQ_SIZE / sizeof(uint32_t)];
+	uint32_t isp_cq_desc_size;
+	uint32_t isp_cq_virt[CMDQ_SEC_ISP_VIRT_SIZE / sizeof(uint32_t)];
+	uint32_t isp_cq_virt_size;
+	uint32_t isp_tile[CMDQ_SEC_ISP_TILE_SIZE / sizeof(uint32_t)];
+	uint32_t isp_tile_size;
 
 	/* debug */
 	uint64_t hNormalTask; /* handle to reference task in normal world*/

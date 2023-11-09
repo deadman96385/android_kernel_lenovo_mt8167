@@ -167,3 +167,11 @@ config MTK_DRE30_SUPPORT
 	  display visual enhancement ver.3.
 	  This feature requires the cowork of AAL user-space algorithm process.
 	  Please also turn on MTK_AAL_SUPPORT amd MTK_DRE30_SUPPORT in ProjectConfig.mk.
+
+config FREE_FB_BUFFER
+	bool "Support free framebuffer when into kernel"
+	default n
+	help
+	  This config decide if free framebuffer when into kernel
+	  DAL layer will not be supported if it set to y
+	  If you are not sure about this, do not set it to y

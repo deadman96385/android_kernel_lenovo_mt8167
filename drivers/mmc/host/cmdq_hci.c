@@ -27,8 +27,8 @@
 #include <linux/workqueue.h>
 
 #include "cmdq_hci.h"
-#include "mtk_sd.h"
-#include "dbg.h"
+//#include "mtk_sd.h"
+//#include "dbg.h"
 #include "card.h"
 
 #define DCMD_SLOT 31
@@ -270,7 +270,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 {
 	int err = 0;
 	u32 cqcfg = 0;
-	bool dcmd_enable = FALSE;
+	bool dcmd_enable = false;
 	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
 
 	if (!cq_host || !mmc_card_cmdq(mmc->card)) {
@@ -363,7 +363,6 @@ static void cmdq_disable(struct mmc_host *mmc, bool soft)
 static void cmdq_reset(struct mmc_host *mmc, bool soft)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
-	struct mmc_request *mrq = mmc->err_mrq;
 	unsigned int cqcfg = 0;
 	unsigned int tdlba = 0;
 	unsigned int tdlbau = 0;
@@ -380,7 +379,7 @@ static void cmdq_reset(struct mmc_host *mmc, bool soft)
 
 	cmdq_disable(mmc, true);
 
-	if (cq_host->ops->reset && !mrq->cmdq_req->skip_reset) {
+	if (cq_host->ops->reset) {
 		ret = cq_host->ops->reset(mmc);
 		if (ret) {
 			pr_notice("%s: reset CMDQ controller: failed\n",
@@ -425,15 +424,15 @@ static void cmdq_prep_task_desc(struct mmc_request *mrq,
 		 cmdq_req->blk_addr);
 #endif
 
-	/* set force programming, if can not apply cache during write
-	 * when DIR is set means read, so check if DIR is unset here
-	 */
-	if (!(req_flags & DIR) &&
-		!msdc_can_apply_cache(
+#ifdef CONFIG_MMC_MTK_PRO
+	/* MT81xx projects do not have msdc_can_apply_cache() */
+	/* set force programming, if can not apply cache */
+	if (!msdc_can_apply_cache(
 		(u64)mrq->cmdq_req->blk_addr,
 		mrq->cmdq_req->data.blocks)) {
 		req_flags |= FORCED_PRG;
 	}
+#endif
 
 	*data = VALID(1) |
 		END(1) |
@@ -616,9 +615,11 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	struct msdc_host *msdc_host = mmc_priv(mmc);
 
+#if 0
 	MVG_EMMC_DECLARE_INT32(delay_ns);
 	MVG_EMMC_DECLARE_INT32(delay_us);
 	MVG_EMMC_DECLARE_INT32(delay_ms);
+#endif
 
 	(void)msdc_host; /* prevent build error */
 
@@ -634,9 +635,11 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		cq_host->mrq_slot[DCMD_SLOT] = mrq;
 		/* DCMD's are always issued on a fixed slot */
 		tag = DCMD_SLOT;
+#ifdef CONFIG_MMC_MTK_PRO
 		dbg_add_host_log(mmc, MAGIC_CQHCI_DBG_TYPE_DCMD,
 			mrq->cmd->opcode,
 			mrq->cmd->arg);
+#endif
 		goto ring_doorbell;
 	}
 
@@ -668,27 +671,31 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	cq_host->mrq_slot[tag] = mrq;
 
-	/* EN_CQHCI_IRQ, msdc host base + 0x10 */
-	cmdq_writel_normal(cq_host, (1 << 28), 0x10);
-
+#ifdef CONFIG_MMC_MTK_PRO
 	dbg_add_host_log(mmc, MAGIC_CQHCI_DBG_TYPE,
 		MAGIC_CQHCI_DBG_NUM_L + tag,
 		lower_32_bits(*task_desc));
 	dbg_add_host_log(mmc, MAGIC_CQHCI_DBG_TYPE,
 		MAGIC_CQHCI_DBG_NUM_U + tag,
 		upper_32_bits(*task_desc));
+#endif
 
 ring_doorbell:
+	/* EN_CQHCI_IRQ, msdc host base + 0x10 */
+	cmdq_writel_normal(cq_host, (1 << 28), 0x10);
+
 #ifdef MMC_CQHCI_DEBUG
 	pr_debug("%s: %s, mrq->req = 0x%p, tag = %d, mrq->cmdq_req->tag = %d issued!!!\n",
 		   mmc_hostname(mmc), __func__,
 		   mrq->req, tag, mrq->cmdq_req->tag);
 #endif
 
+#if 0
 	if (mrq->cmdq_req->cmdq_req_flags & DCMD)
 		MVG_EMMC_ERASE_MATCH(msdc_host,
 			mrq->cmd->arg, delay_ms, delay_us,
 			delay_ns, mrq->cmd->opcode);
+#endif
 
 	/* Ensure the task descriptor list is flushed before ringing doorbell */
 	wmb();
@@ -696,6 +703,7 @@ ring_doorbell:
 	/* Commit the doorbell write immediately */
 	wmb();
 
+#if 0
 	if (mrq->cmdq_req->cmdq_req_flags & DCMD)
 		MVG_EMMC_ERASE_RESET(delay_ms,
 			delay_us,
@@ -707,6 +715,7 @@ ring_doorbell:
 			(mrq->cmdq_req->cmdq_req_flags & DIR) ?
 			(46 + tag * 100) : (47 + tag * 100),
 			mrq->cmdq_req->data.blocks << 9);
+#endif
 out:
 
 	return err;
@@ -720,13 +729,17 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	mrq = get_req_by_tag(cq_host, tag);
 	if (tag == cq_host->dcmd_slot) {
 		mrq->cmd->resp[0] = cmdq_readl(cq_host, CQCRDCT);
+#ifdef CONFIG_MMC_MTK_PRO
 		dbg_add_host_log(mmc, (MAGIC_CQHCI_DBG_TYPE_DCMD + 1),
 			mrq->cmd->opcode,
 			mrq->cmd->resp[0]);
+#endif
 	} else {
+#ifdef CONFIG_MMC_MTK_PRO
 		dbg_add_host_log(mmc, MAGIC_CQHCI_DBG_TYPE,
 			MAGIC_CQHCI_DBG_NUM_RI + tag,
 			cmdq_readl(cq_host, CQCRA));
+#endif
 	}
 	mrq->done(mrq);
 }
@@ -736,6 +749,7 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	u32 status = 0;
 	unsigned long tag = 0, comp_status = 0, cmd_idx = 0;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	struct mmc_cmdq_context_info *ctx_info = &mmc->cmdq_ctx;
 	unsigned long err_info = 0;
 	struct mmc_request *mrq = NULL;
 	int ret;
@@ -787,17 +801,16 @@ _err:
 		if (err_info & CQ_RMEFV) {
 			cmd_idx = GET_CMD_ERR_CMDIDX(err_info);
 			if (cmd_idx == MMC_SEND_STATUS) {
-				u32 task_mask;
 				/*
 				 * since CMD13 does not belong to
 				 * any tag, just find an active
-				 * task from CQTCN or CQTDBR
-				 * and trigger error.
+				 * task and trigger error.
 				 */
-				task_mask = cmdq_readl(cq_host, CQTCN);
-				if (!task_mask)
-					task_mask = cmdq_readl(cq_host, CQTDBR);
-				tag = uffs(task_mask) - 1;
+#ifdef CONFIG_MMC_MTK_PRO
+				tag = uffs(ctx_info->active_reqs) - 1;
+#else
+				tag = ffs(ctx_info->active_reqs) - 1;
+#endif
 				pr_notice("%s: cmd%lu err tag: %lu\n",
 					__func__, cmd_idx, tag);
 			} else {
@@ -829,14 +842,8 @@ _err:
 			 * exception once the queue is empty
 			 */
 			WARN_ON(!mmc->card); /*bug*/
-			if (mrq && mrq->cmdq_req) {
+			if (mrq && mrq->cmdq_req)
 				mrq->cmdq_req->resp_err = true;
-				if (cmdq_readl(cq_host, CQCRA) & (0x1 << 26)) {
-				/* WP violation: shrink log & don't run autok */
-					mrq->cmdq_req->skip_dump = true;
-					mrq->cmdq_req->skip_reset = true;
-				}
-			}
 			pr_notice("%s: Response error (0x%08x) from card !!!\n",
 				mmc_hostname(mmc), cmdq_readl(cq_host, CQCRA));
 		} else {
@@ -1034,8 +1041,10 @@ static void cmdq_dumpstate(struct mmc_host *mmc, bool more)
 	cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 
 	cmdq_dumpregs(cq_host);
+#ifdef CONFIG_MMC_MTK_PRO
 	if (more)
 		msdc_dump_info(NULL, 0, NULL, 0);
+#endif
 }
 
 static const struct mmc_cmdq_host_ops cmdq_host_ops = {

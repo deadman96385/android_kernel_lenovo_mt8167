@@ -244,6 +244,14 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->bitrate = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_BITRATE;
 		break;
+	case V4L2_CID_MPEG_MTK_SEC_ENCODE:
+		p->svp_mode = ctrl->val;//could set encoder to svp mode
+		//set parameter is not must
+		ctx->param_change |= MTK_ENCODE_PARAM_SEC_ENCODE;
+		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_ENCODE id %d val %d array[0] %d array[1] %d",
+			ctx->id, ctrl->id, ctrl->val,
+		ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
+		break;
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_B_FRAMES val = %d",
 			       ctrl->val);
@@ -382,6 +390,11 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			ctrl->val);
 		p->bitratemode = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_BITRATE_MODE;
+		break;
+	case V4L2_CID_MPEG_VIDEO_ENABLE_TSVC:
+		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_ENABLE_TSVC");
+		p->tsvc = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
 		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_ROI_ON:
 		mtk_v4l2_debug(2,
@@ -1746,6 +1759,26 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					 VENC_SET_PARAM_ADJUST_BITRATE,
 					 &enc_prm);
 	}
+	if (mtk_buf->param_change & MTK_ENCODE_PARAM_SEC_ENCODE) {
+		enc_prm.svp_mode = mtk_buf->enc_params.svp_mode;
+		mtk_v4l2_debug(0, "[%d] change param svp=%d",
+				ctx->id,
+				enc_prm.svp_mode);
+		ret |= venc_if_set_param(ctx,
+					 VENC_SET_PARAM_SEC_MODE,
+					 &enc_prm);
+	}
+
+	if (mtk_buf->param_change & MTK_ENCODE_PARAM_TSVC) {
+		enc_prm.tsvc = mtk_buf->enc_params.tsvc;
+		mtk_v4l2_debug(1, "MTK_ENCODE_PARAM_TSVC [%d] idx=%d, tsvc=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.tsvc);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_TSVC,
+					&enc_prm);
+	}
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_FRAMERATE) {
 		enc_prm.frm_rate = mtk_buf->enc_params.framerate_num /
 				   mtk_buf->enc_params.framerate_denom;
@@ -2244,6 +2277,8 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE,
 			  1, 400000000, 1, 20000000);
+	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_SEC_ENCODE,
+			0, 2, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_B_FRAMES,
 			  0, 2, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
@@ -2256,6 +2291,8 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 			  0, 65535, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE,
 			  0, 1, 1, 0);
+	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_ENABLE_TSVC,
+		      0, 1, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME,
 			  0, 0, 0, 0);
 	v4l2_ctrl_new_std_menu(handler, ops,

@@ -122,7 +122,7 @@ struct ion_sys_get_phys_param {
 		int handle;
 		struct ion_handle *kernel_handle;
 	};
-	unsigned long phy_addr;
+	unsigned int phy_addr;
 	unsigned long len;
 };
 

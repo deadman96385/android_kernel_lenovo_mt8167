@@ -38,6 +38,7 @@ ccflags-y += -DSMI_AQU
 ENABLE_SCENARIO := true
 FORCE_STEP0 := false
 PLL_HOPPING_READY := true
+BUILD_MMDVFS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
 ccflags-y += -DSMI_TAL
 SUPPORT_MMP := true
@@ -71,9 +72,20 @@ platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else
 
 ifeq (true, $(BUILD_MMDVFS))
 obj-y += mmdvfs_pmqos.o
+obj-y += mmdvfs_ioctl.o
+endif
+ifeq (true, $(ENABLE_SCENARIO))
+ccflags-y += -DENABLE_SCENARIO
+obj-y += mmdvfs_scenario.o
+obj-y += mmdvfs_mgr_v3.o
+obj-y += mmdvfs_mgr_util.o
+obj-y += mmdvfs_profile_adaptor.o
 endif
 ifeq (true, $(FORCE_STEP0))
 ccflags-y += -DMMDVFS_FORCE_STEP0
+endif
+ifeq (true, $(PLL_HOPPING_READY))
+ccflags-y += -DPLL_HOPPING_READY
 endif
 ifeq (true, $(SKIP_SMI_CONFIG))
 ccflags-y += -DMMDVFS_SKIP_SMI_CONFIG

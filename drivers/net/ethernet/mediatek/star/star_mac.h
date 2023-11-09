@@ -239,6 +239,7 @@ do {\
 #define MDC_NEG_LAT BIT(8)
 #define MDC_DIV ((u32)0xFF << 0)
 #define MDC_CLK_DIV_10 ((u32)0x0A << 0)
+#define MDC_CLK_DIV_50 ((u32)0x32 << 0)
 
 /* MIB Counter register */
 #define STAR_MIB_RXOKPKT(base) (base + 0x0100)
@@ -258,7 +259,7 @@ do {\
 /**
  * @brief structure for Tx descriptor Ring
  */
-struct tx_desc_s {
+struct tx_desc {
 	/* Tx control and length */
 	u32 ctrl_len;
 /* Tx descriptor Own bit; 1: CPU own */
@@ -300,10 +301,10 @@ struct tx_desc_s {
 #define TX_VID_OFFSET (0)
 	/* Tx pointer for external management usage */
 	u32 reserve;
-} tx_desc;
+};
 
 /* Rx Ring */
-struct rx_desc_s {
+struct rx_desc {
 	/* Rx control and length */
 	u32 ctrl_len;
 /* RX descriptor Own bit; 1: CPU own */
@@ -355,13 +356,13 @@ struct rx_desc_s {
 #define RX_VID_MASK (0xfff)		/* VLAN Tag VID */
 #define RX_VID_OFFSET			(0)
 	u32 reserve;	/* Rx pointer for external management usage */
-} rx_desc;
+};
 
-struct star_dev_s {
-	void __iomem *base;               /* Base register of Star Ethernet */
-	void __iomem *pericfg_base;            /* Base register of PERICFG */
-	tx_desc *tx_desc;         /* Base Address of Tx descriptor Ring */
-	rx_desc *rx_desc;         /* Base Address of Rx descriptor Ring */
+struct star_dev {
+	void __iomem *base;          /* Base register of Star Ethernet */
+	void __iomem *pericfg_base;  /* Base register of PERICFG */
+	struct tx_desc *tx_desc; /* Base Address of Tx descriptor Ring */
+	struct rx_desc *rx_desc; /* Base Address of Rx descriptor Ring */
 	u32 tx_ring_size;
 	u32 rx_ring_size;
 	u32 tx_head;             /* Head of Tx descriptor (least sent) */
@@ -375,39 +376,40 @@ struct star_dev_s {
 	struct net_device_stats stats;
 	struct eth_phy_ops *phy_ops;
 	struct device *dev;
-} star_dev;
+};
 
-int star_hw_init(star_dev *dev);
+int star_hw_init(struct star_dev *dev);
 
-u16 star_mdc_mdio_read(star_dev *dev, u32 phy_addr, u32 phy_reg);
-void star_mdc_mdio_write(star_dev *dev, u32 phy_addr, u32 phy_reg, u16 value);
+u16 star_mdc_mdio_read(struct star_dev *dev, u32 phy_addr, u32 phy_reg);
+void star_mdc_mdio_write(struct star_dev *dev, u32 phy_addr,
+			 u32 phy_reg, u16 value);
 
-int star_dma_init(star_dev *dev, uintptr_t desc_viraddr,
+int star_dma_init(struct star_dev *dev, uintptr_t desc_viraddr,
 		  dma_addr_t desc_dmaaddr);
-int star_dma_tx_set(star_dev *dev, u32 buffer,
+int star_dma_tx_set(struct star_dev *dev, u32 buffer,
 		    u32 length, uintptr_t extBuf);
-int star_dma_tx_get(star_dev *dev, u32 *buffer,
+int star_dma_tx_get(struct star_dev *dev, u32 *buffer,
 		    u32 *ctrl_len, uintptr_t *extBuf);
-int star_dma_rx_set(star_dev *dev, u32 buffer,
+int star_dma_rx_set(struct star_dev *dev, u32 buffer,
 		    u32 length, uintptr_t extBuf);
-int star_dma_rx_get(star_dev *dev, u32 *buffer,
+int star_dma_rx_get(struct star_dev *dev, u32 *buffer,
 		    u32 *ctrl_len, uintptr_t *extBuf);
-void star_dma_tx_stop(star_dev *dev);
-void star_dma_rx_stop(star_dev *dev);
+void star_dma_tx_stop(struct star_dev *dev);
+void star_dma_rx_stop(struct star_dev *dev);
 
-int star_mac_init(star_dev *dev, u8 mac_addr[6]);
+int star_mac_init(struct star_dev *dev, u8 mac_addr[6]);
 
-int star_mib_init(star_dev *dev);
-int star_phyctrl_init(star_dev *dev, u32 enable, u32 phy_addr);
-void star_set_hashbit(star_dev *dev, u32 addr, u32 value);
+int star_mib_init(struct star_dev *dev);
+int star_phyctrl_init(struct star_dev *dev, u32 enable, u32 phy_addr);
+void star_set_hashbit(struct star_dev *dev, u32 addr, u32 value);
 
-void star_link_status_change(star_dev *dev);
-void star_nic_pdset(star_dev *dev, bool flag);
+void star_link_status_change(struct star_dev *dev);
+void star_nic_pdset(struct star_dev *dev, bool flag);
 
-void star_config_wol(star_dev *star_dev, bool enable);
-void enable_eth_wol(star_dev *star_dev);
-void disable_eth_wol(star_dev *star_dev);
-void star_switch_to_rmii_mode(star_dev *star_dev);
-u32 desc_tx_empty(tx_desc *tx_desc);
-u32 desc_rx_empty(rx_desc *rx_desc);
+void star_config_wol(struct star_dev *star_dev, bool enable);
+void enable_eth_wol(struct star_dev *star_dev);
+void disable_eth_wol(struct star_dev *star_dev);
+void star_switch_to_rmii_mode(struct star_dev *star_dev);
+u32 desc_tx_empty(struct tx_desc *tx_desc);
+u32 desc_rx_empty(struct rx_desc *rx_desc);
 #endif

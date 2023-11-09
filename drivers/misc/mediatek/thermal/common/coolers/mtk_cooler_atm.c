@@ -20,13 +20,13 @@
 #include <linux/proc_fs.h>
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
+#include "mtk_power_throttle.h"
 #include "mt-plat/mtk_thermal_platform.h"
 #if defined(CONFIG_MTK_CLKMGR)
 #include <mach/mtk_clkmgr.h>
 #else
 #include <linux/clk.h>
 #endif
-#include <mach/wd_api.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <tscpu_settings.h>
@@ -37,7 +37,9 @@
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"
 #else
+#ifndef CONFIG_MACH_MT8168
 #include "mt_cpufreq.h"
+#endif
 #endif
 
 #ifdef FAST_RESPONSE_ATM
@@ -451,7 +453,9 @@ mtk_eara_thermal_pb_handle(int total_pwr_budget,
 bool __attribute__((weak))
 mtk_get_gpu_loading(unsigned int *pLoading)
 {
+#ifdef CONFIG_MTK_GPU_SUPPORT
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
+#endif
 	return 0;
 }
 unsigned int  __attribute__((weak))
@@ -2451,6 +2455,8 @@ static int tscpu_read_atm(struct seq_file *m, void *v)
 	seq_printf(m, "tp_ratio_high_fall = %d\n", tp_ratio_high_fall);
 	seq_printf(m, "tp_ratio_low_rise = %d\n", tp_ratio_low_rise);
 	seq_printf(m, "tp_ratio_low_fall = %d\n", tp_ratio_low_fall);
+
+	dump_power_table();
 
 	return 0;
 }

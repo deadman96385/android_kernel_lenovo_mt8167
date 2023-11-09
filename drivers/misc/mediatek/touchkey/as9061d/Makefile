@@ -1,0 +1,2 @@
+
+obj-$(CONFIG_TOUCHKEY_AS9061D) += as9061d.o

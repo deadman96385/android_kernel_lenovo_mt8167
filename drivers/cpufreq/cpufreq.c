@@ -1681,6 +1681,10 @@ void cpufreq_resume(void)
 	if (!cpufreq_driver)
 		return;
 
+	if (unlikely(!cpufreq_suspended)) {
+		pr_warn("%s: resume after failing suspend\n", __func__);
+		return;
+	}
 	cpufreq_suspended = false;
 
 	if (!has_target() && !cpufreq_driver->resume)

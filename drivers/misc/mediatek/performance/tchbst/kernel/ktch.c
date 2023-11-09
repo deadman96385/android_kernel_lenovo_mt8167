@@ -25,12 +25,7 @@
 #include "boost_ctrl.h"
 #include "mtk_perfmgr_internal.h"
 
-
-
-#define MAX_CORE (8)
-#define MAX_FREQ (20000000)
 #define TARGET_CORE (-1)
-#define TARGET_FREQ (1183000)
 
 struct boost {
 	spinlock_t touch_lock;
@@ -57,7 +52,17 @@ int ktch_get_target_core(void)
 
 int ktch_get_target_freq(void)
 {
-	return TARGET_FREQ;
+	struct cpufreq_policy *policy;
+	struct cpufreq_cpuinfo cpuinfo;
+
+	policy = cpufreq_cpu_get(0);
+	if (IS_ERR_OR_NULL(policy))
+		return -EINVAL;
+
+	cpuinfo = policy->cpuinfo;
+	cpufreq_cpu_put(policy);
+
+	return cpuinfo.max_freq;
 }
 
 void set_freq(int enable, int core, int freq)
@@ -170,7 +175,7 @@ static ssize_t perfmgr_tb_core_write(struct file *filp, const char *ubuf,
 	if (ret < 0)
 		return ret;
 
-	if (val > MAX_CORE)
+	if (val > num_possible_cpus())
 		return -1;
 
 	spin_lock_irqsave(&ktchboost.touch_lock, flags);
@@ -207,6 +212,18 @@ static ssize_t perfmgr_tb_freq_write(struct file *filp, const char *ubuf,
 	unsigned long val;
 	int ret;
 	unsigned long flags;
+	struct cpufreq_policy *policy;
+	struct cpufreq_cpuinfo cpuinfo;
+
+	policy = cpufreq_cpu_get(0);
+	if (IS_ERR_OR_NULL(policy))
+		return -EINVAL;
+
+	cpuinfo = policy->cpuinfo;
+	cpufreq_cpu_put(policy);
+
+	if (IS_ERR_OR_NULL(&cpuinfo))
+		return -EINVAL;
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -218,7 +235,7 @@ static ssize_t perfmgr_tb_freq_write(struct file *filp, const char *ubuf,
 	if (ret < 0)
 		return ret;
 
-	if (val > MAX_FREQ)
+	if (val > cpuinfo.max_freq)
 		return -1;
 
 	spin_lock_irqsave(&ktchboost.touch_lock, flags);

@@ -35,15 +35,12 @@
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
 
-#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
-	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-
+#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
 #define MTK_IN_HOUSE_SEC_ION_SUPPORT
 #include "tz_cross/trustzone.h"
 #include "tz_cross/ta_mem.h"
 #include "trustzone/kree/system.h"
 #include "trustzone/kree/mem.h"
-
 #endif
 
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM

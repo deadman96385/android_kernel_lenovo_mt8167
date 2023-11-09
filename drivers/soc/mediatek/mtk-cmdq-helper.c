@@ -1212,14 +1212,6 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 	if (cmdq_pkt_is_finalized(pkt))
 		return 0;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	if (pkt->sec_data) {
-		err = cmdq_sec_insert_backup_cookie(pkt);
-		if (err)
-			return err;
-	}
-#endif
 	/* insert EOC and generate IRQ for each command iteration */
 	err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(CMDQ_EOC_IRQ_EN),
 		CMDQ_GET_ARG_B(CMDQ_EOC_IRQ_EN), 0, 0, 0, 0, 0, CMDQ_CODE_EOC);

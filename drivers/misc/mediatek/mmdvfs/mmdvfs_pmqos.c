@@ -25,16 +25,18 @@
 #include <linux/delay.h>
 #include <linux/sched/clock.h>
 
-#ifdef PLL_HOPPING_READY
-#include <mt_freqhopping_drv.h>
+#ifdef CONFIG_MTK_FREQ_HOPPING
+#include "mtk_freqhopping_drv.h"
 #endif
 
 #ifdef USE_MTK_DRAMC
 #include <mtk_dramc.h>
 #endif
 
-#include "mmdvfs_pmqos.h"
+#include "mmdvfs_ioctl.h"
 #include "mmdvfs_plat.h"
+#include "mmdvfs_pmqos.h"
+#include "mmdvfs_scenario.h"
 #include <mt-plat/aee.h>
 
 #ifdef APPLY_CLK_LOG
@@ -42,8 +44,11 @@
 #include "mt6779_clkmgr.h"
 #endif
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #include "smi_pmqos.h"
 #include "smi_public.h"
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "mmdvfs_events.h"
@@ -85,6 +90,7 @@ struct mmdvfs_mmp_events_t {
 static struct mmdvfs_mmp_events_t mmdvfs_mmp_events;
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 enum {
 	VIRTUAL_DISP_LARB_ID = SMI_LARB_NUM,
 	VIRTUAL_MD_LARB_ID,
@@ -97,6 +103,7 @@ enum {
 #define PORT_VIRTUAL_MD	 SMI_PMQOS_ENC(VIRTUAL_MD_LARB_ID, 0)
 #define PORT_VIRTUAL_CCU_COMMON	 SMI_PMQOS_ENC(VIRTUAL_CCU_COMMON_ID, 0)
 #define PORT_VIRTUAL_CCU_COMMON2 SMI_PMQOS_ENC(VIRTUAL_CCU_COMMON2_ID, 0)
+#endif
 
 static u32 log_level;
 enum mmdvfs_log_level {
@@ -155,6 +162,7 @@ static u32 fmeter_mux_ids[MAX_MUX_SIZE];
 static u32 mux_real_freqs[MAX_MUX_SIZE];
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #define UNINITIALIZED_VALUE (-1)
 #define MAX_OSTD_NODE_NAME "max_ostd"
 static s32 max_ostd = UNINITIALIZED_VALUE;
@@ -162,8 +170,8 @@ static s32 max_ostd = UNINITIALIZED_VALUE;
 #define CAM_LARB_NODE_NAME "cam_larb"
 static u32 cam_larb_size;
 static u32 cam_larb_ids[MAX_LARB_COUNT];
-
 static u32 max_bw_bound;
+#endif
 #define MAX_COMM_NUM (2)
 
 #define VCORE_NODE_NAME "vopp_steps"
@@ -175,12 +183,16 @@ static s32 force_step = STEP_UNREQUEST;
 static bool mmdvfs_enable;
 static bool mmdvfs_autok_enable;
 static struct pm_qos_request vcore_request;
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 static struct pm_qos_request mm_bw_request;
 static struct pm_qos_request smi_freq_request[MAX_COMM_NUM];
+#endif
 static DEFINE_MUTEX(step_mutex);
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 static DEFINE_MUTEX(bw_mutex);
 static s32 total_hrt_bw;
 static BLOCKING_NOTIFIER_HEAD(hrt_bw_throttle_notifier);
+#endif
 
 
 static int mm_freq_notify(struct notifier_block *nb,
@@ -469,6 +481,7 @@ static void mm_apply_clk_for_all(u32 pm_qos_class, s32 src_mux_id,
 			*((u32 *)&freq[0]), *((u32 *)&freq[4]));
 }
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 /* id is from SMI_LARB_L1ARB */
 static void get_comm_port_by_id(u32 id, u32 *comm, u32 *comm_port)
 {
@@ -564,6 +577,7 @@ void mm_qos_update_larb_bwl(u32 larb_update, bool bw_change)
 		}
 	}
 }
+#endif
 
 static u32 mmdvfs_get_limit_status(u32 pm_qos_class)
 {
@@ -634,12 +648,14 @@ static void update_step(u32 pm_qos_class, s32 src_mux_id)
 	}
 	mutex_unlock(&step_mutex);
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	if (!skip_smi_config) {
 		/* update bwl due to freq change */
 		mutex_lock(&bw_mutex);
 		mm_qos_update_larb_bwl(0xFFFF, false);
 		mutex_unlock(&bw_mutex);
 	}
+#endif
 }
 
 static int mm_freq_notify(struct notifier_block *nb,
@@ -698,6 +714,7 @@ int mmdvfs_qos_get_freq_steps(u32 pm_qos_class,
 }
 EXPORT_SYMBOL_GPL(mmdvfs_qos_get_freq_steps);
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #define MAX_LARB_NAME 16
 
 static struct mm_larb_request larb_req[MAX_LARB_COUNT] = {};
@@ -1478,6 +1495,7 @@ static s32 get_total_hrt_bw(void)
 #endif
 	return result;
 }
+#endif
 
 static void get_module_clock_by_index(struct device *dev,
 	u32 index, struct clk **clk_module)
@@ -1541,6 +1559,7 @@ static void mmdvfs_get_step_node(struct device *dev,
 	}
 }
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 static void mmdvfs_get_larb_node(struct device *dev, u32 larb_id)
 {
 	u32 value, count = 0;
@@ -1610,6 +1629,7 @@ static void init_virtual_larbs(void)
 	larb_req[SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_MD)].total_hrt_data =
 						get_md_hrt_bw();
 }
+#endif
 
 static void mmdvfs_get_step_array_node(struct device *dev,
 	const char *freq_name, struct mm_freq_step_config step_configs[])
@@ -1677,13 +1697,16 @@ static void mmdvfs_get_limit_step_node(struct device *dev,
 
 static int mmdvfs_probe(struct platform_device *pdev)
 {
-	u32 i, value, comm_count = 0;
+	u32 i, value;
 	struct device_node *node = pdev->dev.of_node;
 	struct property *prop;
 	struct mm_freq_config *mm_freq;
 	const __be32 *p;
 	u64 freq_steps[MAX_FREQ_STEP] = {0};
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	const char *mux_name;
+	comm_count = 0;
+#endif
 
 #ifdef MMDVFS_MMP
 	mmprofile_enable(1);
@@ -1717,8 +1740,10 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	mmdvfs_autok_enable = true;
 	pm_qos_add_request(&vcore_request, PM_QOS_VCORE_OPP,
 		PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	pm_qos_add_request(&mm_bw_request, PM_QOS_MM_MEMORY_BANDWIDTH,
 		PM_QOS_MM_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+#endif
 	step_size = 0;
 	of_property_for_each_u32(node, VCORE_NODE_NAME, prop, p, value) {
 		if (step_size >= MAX_FREQ_STEP) {
@@ -1762,6 +1787,7 @@ static int mmdvfs_probe(struct platform_device *pdev)
 			&mm_freq->limit_config);
 	}
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	of_property_for_each_string(node, "comm_freq", prop, mux_name) {
 		if (comm_count >= MAX_COMM_NUM) {
 			pr_notice("comm_count > MAX_COMM_NUM (%d)\n",
@@ -1823,8 +1849,10 @@ static int mmdvfs_probe(struct platform_device *pdev)
 #endif
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	if (SMI_LARB_NUM != 0)
 		init_virtual_larbs();
+#endif
 
 	for (i = 0; i < SMI_LARB_NUM; i++) {
 		value = SMI_LARB_L1ARB[i];
@@ -1835,17 +1863,22 @@ static int mmdvfs_probe(struct platform_device *pdev)
 		pr_notice("larb[%d].comm_port=%d channel=%d\n",
 				i, value, larb_req[i].channel);
 	}
+#endif
 
 	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, freq_steps, &value);
 	pr_notice("disp step size:%u\n", value);
 	for (i = 0; i < value && i < MAX_FREQ_STEP; i++)
 		pr_notice(" - step[%d]: %llu\n", i, freq_steps[i]);
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	total_hrt_bw = get_total_hrt_bw();
 #ifdef BLOCKING_MECHANISM
 	init_waitqueue_head(&hrt_wait);
 #endif
-
+#endif
+#ifdef ENABLE_SCENARIO
+	mmdvfs_scen_init(&pdev->dev);
+#endif
 	vcore_reg_id = regulator_get(&pdev->dev, "vcore");
 	if (!vcore_reg_id)
 		pr_info("regulator_get vcore_reg_id failed\n");
@@ -1858,12 +1891,14 @@ static int mmdvfs_remove(struct platform_device *pdev)
 	u32 i;
 
 	pm_qos_remove_request(&vcore_request);
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	pm_qos_remove_request(&mm_bw_request);
 	for (i = 0; i < MAX_COMM_NUM; i++) {
 		if (comm_freq_class[i] == 0)
 			continue;
 		pm_qos_remove_request(&smi_freq_request[i]);
 	}
+#endif
 	for (i = 0; i < ARRAY_SIZE(all_freqs); i++)
 		pm_qos_remove_notifier(
 			all_freqs[i]->pm_qos_class, &all_freqs[i]->nb);
@@ -1907,12 +1942,13 @@ static int __init mmdvfs_pmqos_init(void)
 			"Failed to register MMDVFS-PMQOS driver(%d)\n", status);
 		return -ENODEV;
 	}
-
+	mmdvfs_ioctl_register();
 	pr_notice("%s\n", __func__);
 	return 0;
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 }
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #ifdef QOS_BOUND_DETECT
 static int system_qos_update(struct notifier_block *nb,
 		unsigned long qos_status, void *v)
@@ -1939,6 +1975,7 @@ struct system_qos_status {
 static struct system_qos_status system_qos = {
 	.nb.notifier_call = system_qos_update,
 };
+#endif
 #endif
 
 static void __exit mmdvfs_pmqos_exit(void)
@@ -2175,6 +2212,7 @@ void mmdvfs_prepare_action(enum mmdvfs_prepare_event event)
 	}
 }
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 s32 get_virtual_port(enum virtual_source_id id)
 {
 	switch (id) {
@@ -2191,10 +2229,12 @@ s32 get_virtual_port(enum virtual_source_id id)
 		return -1;
 	}
 }
+#endif
 
 module_param(log_level, uint, 0644);
 MODULE_PARM_DESC(log_level, "mmdvfs log level");
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 module_param(skip_smi_config, bool, 0644);
 MODULE_PARM_DESC(skip_smi_config, "mmdvfs smi config");
 
@@ -2297,6 +2337,7 @@ static struct kernel_param_ops larb_mode_ops = {
 };
 module_param_cb(larb_mode, &larb_mode_ops, &force_larb_mode, 0644);
 MODULE_PARM_DESC(larb_mode, "set or get current larb mode");
+#endif
 static s32 vote_freq;
 static bool vote_req_init;
 struct pm_qos_request vote_req;
@@ -2329,6 +2370,7 @@ static struct kernel_param_ops vote_freq_ops = {
 module_param_cb(vote_freq, &vote_freq_ops, &vote_freq, 0644);
 MODULE_PARM_DESC(vote_freq, "vote mmdvfs to specified freq, 0 for unset");
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #define UT_MAX_REQUEST 10
 static s32 qos_ut_case;
 static struct plist_head ut_req_list;
@@ -2470,6 +2512,7 @@ static struct kernel_param_ops qos_ut_case_ops = {
 };
 module_param_cb(qos_ut_case, &qos_ut_case_ops, &qos_ut_case, 0644);
 MODULE_PARM_DESC(qos_ut_case, "force mmdvfs UT test case");
+#endif
 
 static s32 mmdvfs_ut_case;
 int mmdvfs_ut_set(const char *val, const struct kernel_param *kp)
@@ -2579,6 +2622,7 @@ static struct kernel_param_ops mmdvfs_ut_ops = {
 module_param_cb(mmdvfs_ut_case, &mmdvfs_ut_ops, &mmdvfs_ut_case, 0644);
 MODULE_PARM_DESC(mmdvfs_ut_case, "force mmdvfs UT test case");
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 int set_disp_bw_ceiling(const char *val, const struct kernel_param *kp)
 {
 	int result;
@@ -2658,6 +2702,7 @@ module_param_cb(force_bwl, &force_bwl_ops,
 	NULL, 0644);
 MODULE_PARM_DESC(force_bwl,
 	"force bwl for each larb");
+#endif
 
 late_initcall(mmdvfs_pmqos_late_init);
 module_init(mmdvfs_pmqos_init);

@@ -22,3 +22,4 @@ obj-y += xpu_notify.o
 
 obj-$(CONFIG_MACH_MT6768) += platform/mt6768/
 obj-$(CONFIG_MACH_MT6785) += platform/mt6785/
+obj-$(CONFIG_MACH_MT8168) += platform/mt8168/

@@ -679,9 +679,13 @@ static int battery_get_property(struct power_supply *psy,
 		/* QMAX from battery, ma to ua */
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+#if defined(CONFIG_POWER_EXT)
+		val->intval = 2000;
+#else
 		val->intval = BMT_status.UI_SOC * battery_meter_get_QMAX25() *
 			      1000 / 100;
 		/* QMAX from battery, ma to ua */
+#endif
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = data->BAT_batt_temp;

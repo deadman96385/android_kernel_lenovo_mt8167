@@ -628,15 +628,28 @@ static void gic_sched_pm_init(void)
 static inline void gic_cpu_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
 
+static const char *const cpt[] = {
+	"mediatek,mcucfg",
+	"mediatek,mt8168-mcusys",
+};
+
 void irq_sw_mode_init(void)
 {
+	u32 i;
 	struct device_node *node;
 
 	if (irq_sw_mode_support() != 1) {
 		pr_notice("### IRQ SW mode not support ###\n");
 		return;
 	}
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mcucfg");
+
+	for (i = 0, node = NULL; !node && i < ARRAY_SIZE(cpt); i++)
+		node = of_find_compatible_node(NULL, NULL, cpt[i]);
+
+	if (!node) {
+		pr_notice("[gic_ext] find mcusys node failed\n");
+		return;
+	}
 	MCUSYS_BASE_SWMODE = of_iomap(node, 0);
 	spin_lock_init(&domain_lock);
 	gic_sched_pm_init();

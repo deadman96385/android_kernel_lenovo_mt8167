@@ -22,9 +22,11 @@ obj-$(CONFIG_MMC_SDHCI_F_SDH30)	+= sdhci_f_sdh30.o
 obj-$(CONFIG_MMC_SDHCI_SPEAR)	+= sdhci-spear.o
 obj-$(CONFIG_MMC_WBSD)		+= wbsd.o
 obj-$(CONFIG_MMC_AU1X)		+= au1xmmc.o
+ccflags-y += -I$(srctree)/drivers/devfreq/
 obj-$(CONFIG_MMC_MTK)		+= mtk-sd.o
 obj-$(CONFIG_MMC_MTK_COMM_SDIO) += mtk-sdio.o
 obj-$(CONFIG_MMC_MTK_SDIO)	+= mtk-sdio.o
+obj-$(CONFIG_MMC_MEDIATEK_STD_SDIO)             += mediatek-sdio.o
 obj-$(CONFIG_MMC_OMAP)		+= omap.o
 obj-$(CONFIG_MMC_OMAP_HS)	+= omap_hsmmc.o
 obj-$(CONFIG_MMC_ATMELMCI)	+= atmel-mci.o
@@ -100,11 +102,8 @@ endif
 obj-$(CONFIG_MMC_MTK_PRO)		+= mediatek/
 ifeq ($(CONFIG_MTK_EMMC_HW_CQ), y)
 ccflags-y += -I$(srctree)/drivers/mmc/core
-ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA
-ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
-ccflags-y += -I$(srctree)/drivers/devfreq
 obj-y		+= cmdq_hci.o
 endif
 

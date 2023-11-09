@@ -116,7 +116,7 @@ CONFIG_CUSTOM_KERNEL_GRAVITY_SENSOR,PROJECT,hongxu.zhao,new config in this commi
 CONFIG_CUSTOM_KERNEL_GRV_SENSOR,PROJECT,hongxu.zhao,new config in this commit efa7fd3bb4ce6ae352425c40321c8d5c7c1c6c14,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_GYROSCOPE,PROJECT,Lomen.Wu,,,,,,,,,,,,,,
 CONFIG_CUSTOM_KERNEL_GYROSCOPE_MODULE,PROJECT,Yue Wu,new config in this commit I7597083eee235dfc7189c82e62d210be5534b595,,,,,,,,,,,,,
-CONFIG_CUSTOM_KERNEL_HDMI,PLATFORM,we.li,new config in this commit b6da34f942623cbaac8ae70f4b2405d4a81961f8,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121
+CONFIG_CUSTOM_KERNEL_HDMI,PLATFORM,we.li,new config in this commit b6da34f942623cbaac8ae70f4b2405d4a81961f8,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,ITE66121,
 CONFIG_CUSTOM_KERNEL_HUMIDITY,PLATFORM,hongxu.zhao,new config in this commit 063ebd2dfda85d1c6ea1c0120c87fa93fc2570e8,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_CUSTOM_KERNEL_IMGSENSOR,PROJECT,jenlung.tsai,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_CUSTOM_KERNEL_IN_POCKET_SENSOR,PROJECT,yucong.xiong,new config in this commit a1a78f1763fbee529159f277816c062515ac238e,,,,,,,,,,,,,
@@ -340,6 +340,7 @@ CONFIG_MMC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MMC_BLOCK_MINORS,COMMON,,,32,32,32,32,32,32,32,32,32,32,32,32,32
 CONFIG_MMC_MTK,PROJECT,,,,,,,,,,,,,,,
 CONFIG_MMC_MTK_PRO,PROJECT,andy.teng,new config in this commit 82cb77493ea32288206e7399cc206e617fefec81,,,,,,,,,,,,,
+CONFIG_MMC_MTK_SDIO,PROJECT,axe.yang,,,,,,,,,,,,,,
 CONFIG_MMC_MTK_COMM_SDIO,PROJECT,axe.yang,,,,,,,,,,,,,,
 CONFIG_MMPROFILE,COMMON,Le.Yang,ME5/ME13/ME16 defaule is y,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MNTL_SUPPORT,PROJECT,isaac.lee,,X,O,X,O,X,O,X,O,X,O,X,O,X
@@ -434,7 +435,7 @@ CONFIG_MTK_CAMERA_ISP_TSF_SUPPORT,PLATFORM,Hung-Wen.Hsieh,,y,X,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT,PLATFORM,MH.hsiao,,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CCCI_DEVICES,COMMON,yanbin.ren,new config in this commit 9715b038cd89c33b3acb9a75a29652347cccc65c,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_CCU,PROJECT,kuanfu.yeh,,O,N,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_CHARGER,COMMON,ivan-yh.chen,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_CHARGER,PLATFORM,ivan-yh.chen,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CHARGER_UNLIMITED,PROJECT,ivan-yh.chen,,,,,,,,,,,,,,
 CONFIG_MTK_CHIP,COMMON,Nora.Chang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CLKMGR,PLATFORM,,,X,X,X,X,X,X,X,X,X,X,X,X,X
@@ -558,7 +559,8 @@ CONFIG_MTK_GRAVITYHUB,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe83
 CONFIG_MTK_GYROHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_GZ_KREE,PROJECT,chsuan.lin,,O,,O,,O,,O,,O,,O,,O
 CONFIG_MTK_GZ_KREE,PROJECT,chsuan.lin,,O,O,O,O,O,O,O,O,O,O,O,O,O
-CONFIG_MTK_GZ_SUPPORT_SDSP,PROJECT,sean-sy.su,,,,,,,,,,
+CONFIG_MTK_GZ_SUPPORT_SDSP,PROJECT,sean-sy.su,,,,,,,,,,,,,,
+CONFIG_MTK_HDMI_HDCP_SUPPORT,PROJECT,Can.Zeng,new config in this commit 21097bc352dc641117cc329dae0f13fb5e39acfb,,,,,,,,,,,,,
 CONFIG_MTK_HDMI_SUPPORT,PROJECT,junzhi.zhao,new config in this commit 8981f73cf7bc71472ded61c12aa2a21239e1f68b,,,,,,,,,,,,,
 CONFIG_MTK_HDMI_TDM,PLATFORM,Michael.Hsiao,new config in this commit 3db7e757ff4b38b71bf2d09fc921a7d277d11b75,X,,X,,X,,X,,X,,X,,X
 CONFIG_MTK_HMDYHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
@@ -574,6 +576,7 @@ CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT,PLATFORM,yt.chang,,,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_IMGSENSOR,COMMON,Josepchi.Tsai,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_INPKHUB,PROJECT,qiangming.xia,new config in this commit e5afb39d5bc749c04142bb69e4f89131015320a6,,,,,,,,,,,,,
 CONFIG_MTK_INTERNAL,PROJECT,junzhi.zhao,,y,,y,,y,,y,,y,,y,,y
+CONFIG_MTK_INTERNAL_HDMI_SUPPORT,PROJECT,Can.Zeng,new config in this commit 21097bc352dc641117cc329dae0f13fb5e39acfb,,,,,,,,,,,,,
 CONFIG_MTK_IO_BOOST,PLATFORM,stanley.chu,finetune for performance,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_IOMMU_V2,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
 CONFIG_MTK_ION,COMMON,youhua.li,new config in this commit 30f50f4e2f5b4c1996816cc4997e5c6b86d28386,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -647,6 +650,8 @@ CONFIG_MTK_MTD_NAND,PROJECT,chienwei.chang,,,,,,,,,,,,,,
 CONFIG_MTK_MUSB_DRV_36BIT,PLATFORM,jeremy.chou,,y,y,y,y,X,X,y,X,y,X,y,X,y
 CONFIG_MTK_MUSB_QMU_PURE_ZLP_SUPPORT,PLATFORM,jeremy.chou,,y,y,y,X,X,y,y,y,y,y,y,y,y
 CONFIG_MTK_MUSB_QMU_SUPPORT,PLATFORM,jeremy.chou,,y,y,y,X,X,y,y,y,y,y,y,y,y
+CONFIG_MTK_USBFSH,PLATFORM,zhanyong.wang,,N,N,N,N,N,N,N,N,N,N,N,N,N
+CONFIG_MTK_MUSBFSH_QMU_SUPPORT,PLATFORM,zhanyong.wang,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_MTK_NAND_BITFLIP,PROJECT,chienwei.chang,,X,O,X,O,X,O,X,O,X,O,X,O,X
 CONFIG_MTK_NEBULA_VM_SUPPORT,PROJECT,coboy.chen,,,,,,,,,,,,,,
 CONFIG_MTK_NET_CCMNI,COMMON,,,X,X,X,X,X,X,X,X,X,X,X,X,X
@@ -776,7 +781,6 @@ CONFIG_MTK_VIDEOCODEC_DRIVER,COMMON,Tofar.Huang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_VIDEOX,PLATFORM,Tai-Hua.Tseng,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_VOW_BARGE_IN_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_VOW_DUAL_MIC_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O,O,O,O,O,O
-CONFIG_MTK_VOW_2E2K_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_VOW_SUPPORT,PROJECT,che-jui.chang,new config in this commit a98a2d4db76d5afef19676fe44e8eb2375f44543,,,,,,,,,,,,,
 CONFIG_MTK_VPU_SUPPORT,PROJECT,guan-ting.lin,,,,,,,,,,,,,,
 CONFIG_MTK_WAKEHUB,PROJECT,qiangming.xia,,,,,,,,,,,,,,
@@ -1073,3 +1077,19 @@ CONFIG_ZRAM_LZ4_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZRAM_LZ4K_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZSM,PROJECT,Robbin.Chiu,new config 84a52cb60725192d8ae0c80b58c363c35484cfd4,,,,,,,,,,,,,
 CONFIG_ZSMALLOC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_TOUCHSCREEN_MTK_GSLX680,PROJECT,Heaven Zhang,,,,,,,,,,,,,,
+CONFIG_TOUCHSCREEN_MTK_GT9157,PROJECT,Heaven Zhang,,,,,,,,,,,,,,
+CONFIG_TOUCHSCREEN_FT5X26,PROJECT,Heaven Zhang,,,,,,,,,,,,,,
+CONFIG_POWER_EXT,PLATFORM,Wentao He,,,,,,,,,,,,,,
+/*<<<<<<< HEAD*/
+CONFIG_MTK_COMBO_CHIP_MT7668,PROJECT,Will cai,,,,,,,,,,,,,,
+CONFIG_MTK_COMBO_CHIP_MT6630,PROJECT,Will cai,,,,,,,,,,,,,,
+CONFIG_MTK_COMBO_CHIP_CONSYS_8167,PROJECT,Will cai,,,,,,,,,,,,,,
+CONFIG_MTK_BQ24296_SUPPORT,PROJECT,Wentao.He,,,,,,,,,,,,,,
+/*=======*/
+CONFIG_SND_SOC_MT8167S_SOM_MACH,PLATFORM,Wentao He,,,,,,,,,,,,,,
+/*>>>>>>> b2247dff82d7... [ALPS04830393] arm/arm64: configs: aiv3m3 audio bringup for mic/spk*/
+CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE,PROJECT,Xiaoqing.Liu,,,,,,,,,,,,,,
+CONFIG_CPU_FREQ_GOV_PERFORMANCE,PROJECT,Xiaoqing.Liu,,,,,,,,,,,,,,
+CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND,PROJECT,Xiaoqing.Liu,,,,,,,,,,,,,,
+CONFIG_CPU_FREQ_GOV_INTERACTIVE,PROJECT,Xiaoqing.Liu,,,,,,,,,,,,,,

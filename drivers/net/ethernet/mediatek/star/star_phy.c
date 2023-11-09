@@ -14,7 +14,7 @@
 
 #include "star.h"
 
-static void ex_phy_reset(star_dev *sdev, u32 id)
+static void ex_phy_reset(struct star_dev *sdev, u32 id)
 {
 	u16 val = 0;
 
@@ -23,7 +23,7 @@ static void ex_phy_reset(star_dev *sdev, u32 id)
 	star_mdc_mdio_write(sdev, id, 0, val);
 }
 
-static void ex_phy_re_an(star_dev *dev, u32 id)
+static void ex_phy_re_an(struct star_dev *dev, u32 id)
 {
 	u16 val = 0;
 
@@ -33,7 +33,7 @@ static void ex_phy_re_an(star_dev *dev, u32 id)
 	star_mdc_mdio_write(dev, id, 0, val);
 }
 
-static void ex_phy_dis_gpsi(star_dev *dev, u32 id)
+static void ex_phy_dis_gpsi(struct star_dev *dev, u32 id)
 {
 	u16 val = 0;
 
@@ -42,7 +42,7 @@ static void ex_phy_dis_gpsi(star_dev *dev, u32 id)
 	star_mdc_mdio_write(dev, id, 18, val);
 }
 
-static void smsc8710a_phy_init(star_dev *sdev)
+static void smsc8710a_phy_init(struct star_dev *sdev)
 {
 	u32 phy_id = sdev->phy_ops->addr;
 
@@ -60,7 +60,7 @@ static struct eth_phy_ops smsc8710a_phy_ops = {
 	.init = smsc8710a_phy_init,
 };
 
-static void dm9162_phy_init(star_dev *sdev)
+static void dm9162_phy_init(struct star_dev *sdev)
 {
 	u32 phy_id = sdev->phy_ops->addr;
 
@@ -73,10 +73,10 @@ static struct eth_phy_ops dm9162_phy_ops = {
 	.init = dm9162_phy_init,
 };
 
-static void ksz8081mnx_phy_init(star_dev *sdev)
+static void ksz8081mnx_phy_init(struct star_dev *sdev)
 {
 	u32 data;
-	star_private *star_prv = sdev->star_prv;
+	struct star_private *star_prv = sdev->star_prv;
 
 	/*set davicom phy register0 bit10 is 0 in MII for mt8160*/
 	data = star_mdc_mdio_read(sdev, star_prv->phy_addr, 0x0) & (~(1 << 10));
@@ -89,7 +89,7 @@ static struct eth_phy_ops ksz8081mnx_phy_ops = {
 	.init = ksz8081mnx_phy_init,
 };
 
-static void default_phy_init(star_dev *sdev)
+static void default_phy_init(struct star_dev *sdev)
 {
 	u32 phy_id = sdev->phy_ops->addr;
 
@@ -103,7 +103,7 @@ static struct eth_phy_ops default_phy_ops = {
 	.init = default_phy_init,
 };
 
-static void ip101g_az_disable(star_dev *dev, u32 id)
+static void ip101g_az_disable(struct star_dev *dev, u32 id)
 {
 	star_mdc_mdio_write(dev, id, 0x0d, 0x0007);
 	star_mdc_mdio_write(dev, id, 0x0e, 0x003c);
@@ -112,7 +112,7 @@ static void ip101g_az_disable(star_dev *dev, u32 id)
 	star_mdc_mdio_read(dev, id, 0x0e);
 }
 
-static void ip101g_anar_init(star_dev *sdev, u32 id)
+static void ip101g_anar_init(struct star_dev *sdev, u32 id)
 {
 	u16 val = 0;
 
@@ -121,7 +121,7 @@ static void ip101g_anar_init(star_dev *sdev, u32 id)
 	star_mdc_mdio_write(sdev, id, 4, val);
 }
 
-static void ip101g_phy_init(star_dev *sdev)
+static void ip101g_phy_init(struct star_dev *sdev)
 {
 	u32 phy_id = sdev->phy_ops->addr;
 
@@ -137,11 +137,11 @@ static struct eth_phy_ops ip101g_phy_ops = {
 	.init = ip101g_phy_init,
 };
 
-static void rtl8201fr_phy_init(star_dev *sdev)
+static void rtl8201fr_phy_init(struct star_dev *sdev)
 {
 	u16 save_page;
 	u32 temp;
-	star_private *star_prv = sdev->star_prv;
+	struct star_private *star_prv = sdev->star_prv;
 
 	/* save page */
 	save_page = star_mdc_mdio_read(sdev, star_prv->phy_addr, 31);
@@ -181,6 +181,7 @@ static void rtl8201fr_phy_init(star_dev *sdev)
 	star_mdc_mdio_write(sdev, star_prv->phy_addr, 0, 0x1200);
 	star_mdc_mdio_write(sdev, star_prv->phy_addr, 31, save_page);
 
+#ifdef REALTEK_PHY_RMII_TIMING_SETTING
 	/* init tx for realtek RMII timing issue */
 	temp = star_get_reg(star_test0(sdev->base));
 	temp &= ~(0x1 << 31);
@@ -189,12 +190,13 @@ static void rtl8201fr_phy_init(star_dev *sdev)
 	star_set_reg(star_test0(sdev->base), temp);
 	STAR_PR_INFO("0x58(0x%x).\n",
 		     star_get_reg(star_test0(sdev->base)));
+#endif
 }
 
 void rtl8201fr_wol_enable(struct net_device *netdev)
 {
-	star_private *star_prv = NULL;
-	star_dev *dev = NULL;
+	struct star_private *star_prv = NULL;
+	struct star_dev *dev = NULL;
 	struct sockaddr sa;
 	char *mac_addr = sa.sa_data;
 	u32 val = 0;
@@ -250,8 +252,8 @@ void rtl8201fr_wol_enable(struct net_device *netdev)
 void rtl8201fr_wol_disable(struct net_device *netdev)
 {
 	u32 val = 0;
-	star_private *star_prv = netdev_priv(netdev);
-	star_dev *dev = &star_prv->star_dev;
+	struct star_private *star_prv = netdev_priv(netdev);
+	struct star_dev *dev = &star_prv->star_dev;
 
 	STAR_PR_INFO("enter %s\n", __func__);
 
@@ -283,7 +285,7 @@ static struct eth_phy_ops rtl8201fr_phy_ops = {
 	.wol_disable = rtl8201fr_wol_disable,
 };
 
-int star_detect_phyid(star_dev *dev)
+int star_detect_phyid(struct star_dev *dev)
 {
 	int addr;
 	u16 reg2;

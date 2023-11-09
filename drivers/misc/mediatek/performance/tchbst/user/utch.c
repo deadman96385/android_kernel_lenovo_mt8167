@@ -21,6 +21,8 @@
 #include "fstb.h"
 #include "mtk_perfmgr_internal.h"
 
+#define NR_FREQ_CPU 16
+
 static void notify_touch_up_timeout(void);
 static DECLARE_WORK(mt_touch_timeout_work, (void *) notify_touch_up_timeout);
 
@@ -48,11 +50,21 @@ void switch_usrtch(int enable)
 void switch_init_opp(int boost_opp)
 {
 	int i;
+	bool rev = (mt_cpufreq_get_freq_by_idx(0, NR_FREQ_CPU - 1) >
+		mt_cpufreq_get_freq_by_idx(0, 0)) ? true : false;
 
 	touch_boost_opp = boost_opp;
-	for (i = 0; i < perfmgr_clusters; i++)
-		target_freq[i].min =
-			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
+	for (i = 0; i < perfmgr_clusters; i++) {
+		if (rev) {
+			target_freq[i].min =
+				mt_cpufreq_get_freq_by_idx(i,
+					NR_FREQ_CPU - 1 - touch_boost_opp);
+		} else {
+			target_freq[i].min =
+				mt_cpufreq_get_freq_by_idx(i,
+					touch_boost_opp);
+		}
+	}
 }
 
 void switch_init_duration(int duration)
@@ -275,6 +287,8 @@ int init_utch(struct proc_dir_entry *parent)
 	struct proc_dir_entry *usrtch, *usrdebug, *usrtch_root;
 	int i;
 	int ret_val = 0;
+	bool rev = (mt_cpufreq_get_freq_by_idx(0, NR_FREQ_CPU - 1) >
+		mt_cpufreq_get_freq_by_idx(0, 0)) ? true : false;
 
 	pr_debug("Start to init usrtch  driver\n");
 
@@ -294,8 +308,15 @@ int init_utch(struct proc_dir_entry *parent)
 			sizeof(struct ppm_limit_data), GFP_KERNEL);
 
 	for (i = 0; i < perfmgr_clusters; i++) {
-		target_freq[i].min =
-			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
+		if (rev) {
+			target_freq[i].min =
+				mt_cpufreq_get_freq_by_idx(i,
+					NR_FREQ_CPU - 1 - touch_boost_opp);
+		} else {
+			target_freq[i].min =
+				mt_cpufreq_get_freq_by_idx(i,
+					touch_boost_opp);
+		}
 		target_freq[i].max = reset_freq[i].min = reset_freq[i].max = -1;
 	}
 	mutex_init(&notify_lock);

@@ -77,6 +77,17 @@ ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
 endif	# end of CONFIG_TRUSTONIC_TEE_SUPPORT or CONFIG_MICROTRUST_TEE_SUPPORT
 
+ifeq ($(strip $(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_dr \
+             -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_tl
+
+ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
+ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
+
+obj-y += cmdq_sec.o
+obj-y += cmdq_sec_trustzone.o
+endif
 # platform dependent definition
 ccflags-y += -DCMDQ_SPECIAL_ESD_PRIORITY
 ccflags-y += -D_CMDQ_DISABLE_MARKER_

@@ -337,6 +337,13 @@
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_GESTURE_DIR_UP              249
+#define KEY_GESTURE_DIR_DOWN            250
+#define KEY_GESTURE_DIR_LEFT            251
+#define KEY_GESTURE_DIR_RIGHT           252
+#define KEY_GESTURE_DIR_FORWARD    		253
+#define KEY_GESTURE_DIR_BACK            254
+#define KEY_FAVORITE    				255
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100

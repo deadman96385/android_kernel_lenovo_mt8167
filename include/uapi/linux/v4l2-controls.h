@@ -84,8 +84,8 @@
 #define V4L2_CID_MPEG_MTK_INTERLACING	(V4L2_CID_MPEG_MTK_BASE+14)
 #define V4L2_CID_MPEG_MTK_CODEC_TYPE	(V4L2_CID_MPEG_MTK_BASE+15)
 #define V4L2_CID_MPEG_MTK_OPERATING_RATE	(V4L2_CID_MPEG_MTK_BASE+16)
-#define V4L2_CID_MPEG_MTK_SEC_ENCODE	(V4L2_CID_MPEG_MTK_BASE+17)
-#define V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT	(V4L2_CID_MPEG_MTK_BASE+18)
+#define V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT	(V4L2_CID_MPEG_MTK_BASE+17)
+#define V4L2_CID_MPEG_MTK_SEC_ENCODE	(V4L2_CID_MPEG_MTK_BASE+18)
 
 /* User-class control IDs */
 
@@ -212,6 +212,11 @@ enum v4l2_colorfx {
 /* The base for the imx driver controls.
  * We reserve 16 controls for this driver. */
 #define V4L2_CID_USER_IMX_BASE			(V4L2_CID_USER_BASE + 0x1090)
+
+/* The base for the mtk-warp driver controls.
+ * We reserve 16 controls for this driver.
+ */
+#define V4L2_CID_USER_MTK_WARP_BASE		(V4L2_CID_USER_BASE + 0x10b0)
 
 /* MPEG-class control IDs */
 /* The MPEG controls are applicable to all codec controls
@@ -425,6 +430,7 @@ enum v4l2_mpeg_video_multi_slice_mode {
 #define V4L2_CID_MPEG_VIDEO_MV_H_SEARCH_RANGE		(V4L2_CID_MPEG_BASE+227)
 #define V4L2_CID_MPEG_VIDEO_MV_V_SEARCH_RANGE		(V4L2_CID_MPEG_BASE+228)
 #define V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME		(V4L2_CID_MPEG_BASE+229)
+#define V4L2_CID_MPEG_VIDEO_ENABLE_TSVC		(V4L2_CID_MPEG_BASE+230)
 
 #define V4L2_CID_MPEG_VIDEO_H263_I_FRAME_QP		(V4L2_CID_MPEG_BASE+300)
 #define V4L2_CID_MPEG_VIDEO_H263_P_FRAME_QP		(V4L2_CID_MPEG_BASE+301)

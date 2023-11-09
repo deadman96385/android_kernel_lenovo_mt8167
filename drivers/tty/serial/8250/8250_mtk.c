@@ -151,29 +151,30 @@ static void mtk8250_dma_rx_complete(void *param)
 	struct mtk8250_data *data = up->port.private_data;
 	struct tty_port *tty_port = &up->port.state->port;
 	struct dma_tx_state state;
+	int copied, cnt, tmp;
 	unsigned char *ptr;
-	int copied;
-
-	dma_sync_single_for_cpu(dma->rxchan->device->dev, dma->rx_addr,
-				dma->rx_size, DMA_FROM_DEVICE);
-
-	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
-	dmaengine_terminate_all(dma->rxchan);
 
 	if (data->rx_status == DMA_RX_SHUTDOWN)
 		return;
 
-	if ((data->rxpos + state.residue) <= dma->rx_size) {
-		ptr = (unsigned char *)(data->rxpos + dma->rx_buf);
-		copied = tty_insert_flip_string(tty_port, ptr, state.residue);
-	} else {
-		ptr = (unsigned char *)(data->rxpos + dma->rx_buf);
-		copied = tty_insert_flip_string(tty_port, ptr,
-					(dma->rx_size - data->rxpos));
+	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
+	cnt = dma->rx_size - state.residue;
+	tmp = cnt;
+
+	if ((data->rxpos + cnt) > dma->rx_size)
+		tmp = dma->rx_size - data->rxpos;
+
+	ptr = (unsigned char *)(data->rxpos + dma->rx_buf);
+	copied = tty_insert_flip_string(tty_port, ptr, tmp);
+	data->rxpos += tmp;
+
+	if (cnt > tmp) {
 		ptr = (unsigned char *)(dma->rx_buf);
-		copied += tty_insert_flip_string(tty_port, ptr,
-				(data->rxpos + state.residue - dma->rx_size));
+		tmp = cnt - tmp;
+		copied += tty_insert_flip_string(tty_port, ptr, tmp);
+		data->rxpos = tmp;
 	}
+
 	up->port.icount.rx += copied;
 
 	tty_flip_buffer_push(tty_port);
@@ -184,14 +185,12 @@ static void mtk8250_dma_rx_complete(void *param)
 static void mtk8250_rx_dma(struct uart_8250_port *up)
 {
 	struct uart_8250_dma *dma = up->dma;
-	struct mtk8250_data *data = up->port.private_data;
 	struct dma_async_tx_descriptor	*desc;
-	struct dma_tx_state	 state;
 
 	desc = dmaengine_prep_slave_single(dma->rxchan, dma->rx_addr,
 					   dma->rx_size, DMA_DEV_TO_MEM,
 					   DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
-	if (desc == NULL) {
+	if (!desc) {
 		pr_err("failed to prepare rx slave single\n");
 		return;
 	}
@@ -200,12 +199,6 @@ static void mtk8250_rx_dma(struct uart_8250_port *up)
 	desc->callback_param = up;
 
 	dma->rx_cookie = dmaengine_submit(desc);
-
-	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
-	data->rxpos = state.residue;
-
-	dma_sync_single_for_device(dma->rxchan->device->dev, dma->rx_addr,
-				   dma->rx_size, DMA_FROM_DEVICE);
 
 	dma_async_issue_pending(dma->rxchan);
 }
@@ -219,17 +212,18 @@ static void mtk8250_dma_enable(struct uart_8250_port *up)
 	if (data->rx_status != DMA_RX_START)
 		return;
 
-	dma->rxconf.direction		= DMA_DEV_TO_MEM;
-	dma->rxconf.src_addr_width	= dma->rx_size/1024;
-	dma->rxconf.src_addr		= dma->rx_addr;
+	dma->rxconf.direction				= DMA_DEV_TO_MEM;
+	dma->rxconf.src_port_window_size	= dma->rx_size;
+	dma->rxconf.src_addr				= dma->rx_addr;
 
-	dma->txconf.direction		= DMA_MEM_TO_DEV;
-	dma->txconf.dst_addr_width	= MTK_UART_TX_SIZE/1024;
-	dma->txconf.dst_addr		= dma->tx_addr;
+	dma->txconf.direction				= DMA_MEM_TO_DEV;
+	dma->txconf.dst_port_window_size	= UART_XMIT_SIZE;
+	dma->txconf.dst_addr				= dma->tx_addr;
 
 	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
 		UART_FCR_CLEAR_XMIT);
-	serial_out(up, MTK_UART_DMA_EN,	MTK_UART_DMA_EN_RX|MTK_UART_DMA_EN_TX);
+	serial_out(up, MTK_UART_DMA_EN,
+		   MTK_UART_DMA_EN_RX | MTK_UART_DMA_EN_TX);
 
 	serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
 	serial_out(up, UART_EFR, UART_EFR_ECB);
@@ -249,10 +243,14 @@ static void mtk8250_dma_enable(struct uart_8250_port *up)
 static int mtk8250_startup(struct uart_port *port)
 {
 #ifdef CONFIG_SERIAL_8250_DMA
-	const struct uart_8250_port *up = up_to_u8250p(port);
+	struct uart_8250_port *up = up_to_u8250p(port);
 	struct mtk8250_data *data = port->private_data;
 
-	if (up->dma != NULL) {
+	/* disable DMA for console */
+	if (uart_console(port))
+		up->dma = NULL;
+
+	if (up->dma) {
 		data->rx_status = DMA_RX_START;
 		uart_circ_clear(&port->state->xmit);
 	}
@@ -265,10 +263,10 @@ static int mtk8250_startup(struct uart_port *port)
 static void mtk8250_shutdown(struct uart_port *port)
 {
 #ifdef CONFIG_SERIAL_8250_DMA
-	const struct uart_8250_port *up = up_to_u8250p(port);
+	struct uart_8250_port *up = up_to_u8250p(port);
 	struct mtk8250_data *data = port->private_data;
 
-	if (up->dma != NULL)
+	if (up->dma)
 		data->rx_status = DMA_RX_SHUTDOWN;
 #endif
 
@@ -339,6 +337,8 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 		mtk8250_disable_intrs(up, MTK_UART_IER_CTSI|MTK_UART_IER_RTSI);
 		mtk8250_enable_intrs(up, MTK_UART_IER_XOFFI);
 		break;
+	default:
+		break;
 	}
 }
 
@@ -346,9 +346,15 @@ static void
 mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 			struct ktermios *old)
 {
+	unsigned short fraction_L_mapping[] = {
+		0, 1, 0x5, 0x15, 0x55, 0x57, 0x57, 0x77, 0x7F, 0xFF, 0xFF
+	};
+	unsigned short fraction_M_mapping[] = {
+		0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 3
+	};
 	struct uart_8250_port *up = up_to_u8250p(port);
+	unsigned int baud, quot, fraction;
 	unsigned long flags;
-	unsigned int baud, quot;
 	int mode;
 
 	/*
@@ -356,11 +362,13 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * set dma parameters, need to release the dma pointer.
 	 */
 #ifdef CONFIG_SERIAL_8250_DMA
-	if (up->dma != NULL && !uart_console(port))
-		mtk8250_dma_enable(up);
-	if (up->dma != NULL && uart_console(port)) {
-		devm_kfree(up->port.dev, up->dma);
-		up->dma = NULL;
+	if (up->dma) {
+		if (uart_console(port)) {
+			devm_kfree(up->port.dev, up->dma);
+			up->dma = NULL;
+		} else {
+			mtk8250_dma_enable(up);
+		}
 	}
 #endif
 
@@ -370,7 +378,7 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * Mediatek UARTs use an extra highspeed register (MTK_UART_HIGHS)
 	 *
 	 * We need to recalcualte the quot register, as the claculation depends
-	 * on the vaule in the highspeed register.
+	 * on the value in the highspeed register.
 	 *
 	 * Some baudrates are not supported by the chip, so we use the next
 	 * lower rate supported and update termios c_flag.
@@ -383,16 +391,9 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 				  port->uartclk / 16 / 0xffff,
 				  port->uartclk);
 
-	if (baud <= 115200) {
+	if (baud < 115200) {
 		serial_port_out(port, MTK_UART_HIGHS, 0x0);
 		quot = uart_get_divisor(port, baud);
-	} else if (baud <= 576000) {
-		serial_port_out(port, MTK_UART_HIGHS, 0x2);
-
-		/* Set to next lower baudrate supported */
-		if ((baud == 500000) || (baud == 576000))
-			baud = 460800;
-		quot = DIV_ROUND_UP(port->uartclk, 4 * baud);
 	} else {
 		serial_port_out(port, MTK_UART_HIGHS, 0x3);
 		quot = DIV_ROUND_UP(port->uartclk, 256 * baud);
@@ -411,16 +412,26 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	/* reset DLAB */
 	serial_port_out(port, UART_LCR, up->lcr);
 
-	if (baud > 460800) {
+	if (baud >= 115200) {
 		unsigned int tmp;
 
-		tmp = DIV_ROUND_CLOSEST(port->uartclk, quot * baud);
-		serial_port_out(port, MTK_UART_SAMPLE_COUNT, tmp - 1);
+		tmp = (port->uartclk / (baud *  quot)) - 1;
+		serial_port_out(port, MTK_UART_SAMPLE_COUNT, tmp);
 		serial_port_out(port, MTK_UART_SAMPLE_POINT,
-					(tmp - 2) >> 1);
+				(tmp >> 1) - 1);
+
+		/*count fraction to set fractoin register */
+		fraction = ((port->uartclk  * 100) / baud / quot) % 100;
+		fraction = DIV_ROUND_CLOSEST(fraction, 10);
+		serial_port_out(port, MTK_UART_FRACDIV_L,
+				fraction_L_mapping[fraction]);
+		serial_port_out(port, MTK_UART_FRACDIV_M,
+				fraction_M_mapping[fraction]);
 	} else {
 		serial_port_out(port, MTK_UART_SAMPLE_COUNT, 0x00);
 		serial_port_out(port, MTK_UART_SAMPLE_POINT, 0xff);
+		serial_port_out(port, MTK_UART_FRACDIV_L, 0x00);
+		serial_port_out(port, MTK_UART_FRACDIV_M, 0x00);
 	}
 
 	if ((termios->c_cflag & CRTSCTS) && (!(termios->c_iflag & CRTSCTS)))
@@ -451,7 +462,7 @@ static int __maybe_unused mtk8250_runtime_suspend(struct device *dev)
 		(serial_in(up, MTK_UART_DEBUG0));
 
 	if (data->clk_count == 0U)
-		pr_debug("%s clock count is 0\n", __func__);
+		dev_dbg(dev, "%s clock count is 0\n", __func__);
 	else {
 		clk_disable_unprepare(data->bus_clk);
 		data->clk_count--;
@@ -466,7 +477,8 @@ static int __maybe_unused mtk8250_runtime_resume(struct device *dev)
 	int err;
 
 	if (data->clk_count > 0U)
-		pr_debug("%s clock count is %d\n", __func__, data->clk_count);
+		dev_dbg(dev, "%s clock count is %d\n", __func__,
+			data->clk_count);
 	else {
 		err = clk_prepare_enable(data->bus_clk);
 		if (err) {
@@ -561,8 +573,11 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 #ifdef CONFIG_SERIAL_8250_DMA
 	dmacnt = of_property_count_strings(pdev->dev.of_node, "dma-names");
 	if (dmacnt == 2) {
-		data->dma = devm_kzalloc(&pdev->dev, sizeof(*(data->dma)),
-								GFP_KERNEL);
+		data->dma = devm_kzalloc(&pdev->dev, sizeof(*data->dma),
+					 GFP_KERNEL);
+		if (!data->dma)
+			return -ENOMEM;
+
 		data->dma->fn = mtk8250_dma_filter;
 		data->dma->rx_size = MTK_UART_RX_SIZE;
 		data->dma->rxconf.src_maxburst = MTK_UART_RX_TRIGGER;
@@ -737,7 +752,7 @@ int mtk8250_request_to_wakeup(void)
 			& MTK_UART_SLEEP_ACK_IDLE) {
 			if (i++ >= MTK_UART_WAIT_ACK_TIMES) {
 				serial_out(up, MTK_UART_SLEEP_REQ, sleep_req);
-				pr_err("CANNOT GET UART%d WAKE ACK\n", line);
+				pr_debug("CANNOT GET UART%d WAKE ACK\n", line);
 				return -EBUSY;
 			}
 			udelay(10);
@@ -876,7 +891,6 @@ void mtk8250_restore_dev(void)
 			continue;
 
 		mtk8250_runtime_resume(up->port.dev);
-		pr_info("restore UART register start!\n");
 
 		spin_lock_irqsave(&up->port.lock, flags);
 
@@ -918,8 +932,6 @@ void mtk8250_restore_dev(void)
 		serial_out(up, MTK_UART_FCR_RD, reg->fcr_rd);
 		serial_out(up, MTK_UART_RX_SEL, reg->rx_sel);
 		spin_unlock_irqrestore(&up->port.lock, flags);
-
-		pr_info("restore UART register finish!\n");
 	}
 }
 EXPORT_SYMBOL(mtk8250_restore_dev);

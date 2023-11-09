@@ -682,6 +682,8 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	}
 
 	snd_soc_dai_digital_mute(cpu_dai, 1, substream->stream);
+	
+	msleep(300); // add for mute
 
 	if (cpu_dai->driver->ops->shutdown)
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);

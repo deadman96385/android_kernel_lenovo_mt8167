@@ -235,6 +235,12 @@ struct ram_console_buffer {
 	uint32_t sz_console;
 };
 
+struct boot_tag_lastpc {
+	unsigned int tag_size;
+	unsigned int tag_magic;
+	unsigned int lastpc[4][8];
+};
+
 #define REBOOT_REASON_SIG (0x43474244)	/* DBRR */
 static int FIQ_log_size = sizeof(struct ram_console_buffer);
 
@@ -502,6 +508,25 @@ static int ram_console_lastk_show(struct ram_console_buffer *buffer,
 	seq_printf(m, "%s, old status is %u.\n",
 			ram_console_clear ?
 			"Clear" : "Not Clear", old_wdt_status);
+
+#ifdef CONFIG_OF
+	if (of_chosen) {
+		struct boot_tag_lastpc *tags = (struct boot_tag_lastpc *)
+			of_get_property(of_chosen, "atag,lastpc", NULL);
+
+		if (tags) {
+			int i, j;
+
+			for (i = 0; i < 4; i++) {
+				seq_printf(m, "LASTPC CORE%d: ", i);
+				for (j = 0; j < 8; j++)
+					seq_printf(m, "0x%08X ",
+							tags->lastpc[i][j]);
+				seq_puts(m, "\n");
+			}
+		}
+	}
+#endif
 
 #ifdef CONFIG_PSTORE_CONSOLE
 	pstore_console_show(PSTORE_TYPE_CONSOLE, m, v);

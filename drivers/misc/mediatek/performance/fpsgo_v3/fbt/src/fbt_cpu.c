@@ -570,7 +570,10 @@ static void fbt_set_ultra_rescue_locked(int input)
 
 static void fbt_filter_ppm_log_locked(int filter)
 {
+	/* mt8168 doesn't support ppm */
+#ifndef CONFIG_MACH_MT8168
 	ppm_game_mode_change_cb(filter);
+#endif
 }
 
 static void fbt_dep_list_filter(struct fpsgo_loading *arr, int size)
@@ -1510,9 +1513,10 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 {
 	unsigned int max_cap = 0U;
 	unsigned int limited_cap;
-	int i;
+	int i, opp;
 	int *clus_max_idx;
 	int max_cluster = 0;
+	struct cpufreq_policy *policy;
 
 	clus_max_idx =
 		kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
@@ -1520,8 +1524,17 @@ static unsigned int fbt_get_max_userlimit_freq(void)
 	if (!clus_max_idx)
 		return 100U;
 
-	for (i = 0; i < cluster_num; i++)
-		clus_max_idx[i] = mt_ppm_userlimit_freq_limit_by_others(i);
+	policy = cpufreq_cpu_get(0);
+
+	for (i = 0 ; i < cluster_num; i++) {
+		for (opp = 0; opp < NR_FREQ_CPU; opp++)
+			if (policy->max == cpu_dvfs[i].power[opp]) {
+				clus_max_idx[i] = opp;
+				break;
+			}
+	}
+
+	cpufreq_cpu_put(policy);
 
 	mutex_lock(&fbt_mlock);
 	for (i = 0; i < cluster_num; i++) {
@@ -2371,6 +2384,8 @@ static void fbt_update_pwd_tbl(void)
 {
 	int cluster, opp;
 	unsigned long long max_cap = 0ULL;
+	bool rev = (mt_cpufreq_get_freq_by_idx(0, NR_FREQ_CPU - 1) >
+		mt_cpufreq_get_freq_by_idx(0, 0)) ? true : false;
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
 		struct cpumask cluster_cpus;
@@ -2390,8 +2405,15 @@ static void fbt_update_pwd_tbl(void)
 			unsigned long long cap = 0ULL;
 			unsigned int temp;
 
-			cpu_dvfs[cluster].power[opp] =
-				mt_cpufreq_get_freq_by_idx(cluster, opp);
+			if (rev) {
+				cpu_dvfs[cluster].power[opp] =
+					mt_cpufreq_get_freq_by_idx(cluster,
+						NR_FREQ_CPU - 1 - opp);
+			} else {
+				cpu_dvfs[cluster].power[opp] =
+					mt_cpufreq_get_freq_by_idx(cluster,
+						opp);
+			}
 
 #ifdef CONFIG_NONLINEAR_FREQ_CTL
 			cap = core_energy->cap_states[

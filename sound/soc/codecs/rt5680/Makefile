@@ -1,0 +1,2 @@
+obj-$(CONFIG_SND_SOC_RT5680)	+= rt5680-spi.o
+obj-$(CONFIG_SND_SOC_RT5680)	+= rt5680.o

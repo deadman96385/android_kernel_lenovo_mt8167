@@ -20,7 +20,7 @@ else
 	ccflags-y += \
 		-DMTK_QOS_SUPPORT
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771" "mt8168"))
 	ccflags-y += \
 		-DMTK_QOS_EMI_OPP
 endif # ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))

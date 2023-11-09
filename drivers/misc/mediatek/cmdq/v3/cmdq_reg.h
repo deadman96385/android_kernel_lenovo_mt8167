@@ -23,6 +23,8 @@
 #define GCE_BASE_PA			cmdq_dev_get_module_base_PA_GCE()
 #define GCE_BASE_VA			cmdq_dev_get_module_base_VA_GCE()
 
+#define DISP_PWM_PA_BASE	0x1100E000
+
 #define CMDQ_CORE_WARM_RESET	(GCE_BASE_VA + 0x000)
 #define CMDQ_CURR_IRQ_STATUS	(GCE_BASE_VA + 0x010)
 #define CMDQ_SECURE_IRQ_STATUS	(GCE_BASE_VA + 0x014)

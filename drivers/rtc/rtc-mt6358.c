@@ -1059,7 +1059,6 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 		ret = PTR_ERR(rtc->rtc_dev);
 		goto out_free_irq;
 	}
-
 	if (of_property_read_bool(pdev->dev.of_node, "apply-lpsd-solution")) {
 		apply_lpsd_solution = 1;
 		pr_notice("%s: apply_lpsd_solution\n", __func__);
@@ -1092,6 +1091,7 @@ static int mtk_rtc_pdrv_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mt6358_rtc_of_match[] = {
+	{ .compatible = "mediatek,mt6357-rtc", },
 	{ .compatible = "mediatek,mt6358-rtc", },
 	{ .compatible = "mediatek,mt6359-rtc", },
 	{ }

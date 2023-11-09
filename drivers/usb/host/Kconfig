@@ -51,6 +51,18 @@ config USB_XHCI_MTK
 	---help---
 	  Say 'Y' to enable the support for the xHCI host controller
 	  found in Mediatek MT65xx SoCs.
+
+config USB_MTK_HQA_TEST
+	bool "Usb Hqa test support for Mediatek MT8168"
+	depends on USB_XHCI_MTK
+	---help---
+	Say 'Y' to enable the support for the USB hqa test
+	  found in Mediatek MT8168 SoC.
+	  In this way, we can generate reg and hqa nodes in
+	  /sys/devices/platform/soc/11201000.usb/11200000.xhci.
+	  So we can use the echo -n test.packet 1 > hqa for hqa
+	  test.
+
 	  If unsure, say N.
 
 config USB_XHCI_MVEBU

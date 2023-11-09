@@ -37,14 +37,15 @@
 
 /* use  rmii mode */
 #define CONFIG_STAR_USE_RMII_MODE
+#define STAR_USE_TX_CLOCK
 
 #define ETH_MAX_FRAME_SIZE          1536
 #define ETH_SKB_ALIGNMENT           16
 
 #define TX_DESC_NUM  128
 #define RX_DESC_NUM  128
-#define TX_DESC_TOTAL_SIZE (sizeof(tx_desc) * TX_DESC_NUM)
-#define RX_DESC_TOTAL_SIZE (sizeof(rx_desc) * RX_DESC_NUM)
+#define TX_DESC_TOTAL_SIZE (sizeof(struct tx_desc) * TX_DESC_NUM)
+#define RX_DESC_TOTAL_SIZE (sizeof(struct rx_desc) * RX_DESC_NUM)
 #define ETH_EXTRA_PKT_LEN 36
 #define ETH_ADDR_LEN 6
 #define STAR_NAPI_WEIGHT (RX_DESC_NUM << 1)
@@ -111,10 +112,10 @@ enum wol_type {
  * @wol:		ethernet mac wol type status
  * @wol_flag:		normal wol: set true to enable, set false to disable.
  */
-struct star_private_s {
+struct star_private {
 	struct regulator *phy_regulator;
 	struct clk *core_clk, *reg_clk, *trans_clk;
-	star_dev star_dev;
+	struct star_dev star_dev;
 	struct net_device *dev;
 	dma_addr_t desc_dma_addr;
 	uintptr_t desc_vir_addr;
@@ -133,13 +134,13 @@ struct star_private_s {
 	int eint_pin;
 	enum wol_type wol;
 	bool wol_flag;
-} star_private;
+};
 
 struct eth_phy_ops {
 	u32 addr;
 	/* value of phy reg3(identifier2) */
 	u32 phy_id;
-	void (*init)(star_dev *sdev);
+	void (*init)(struct star_dev *sdev);
 	void (*wol_enable)(struct net_device *netdev);
 	void (*wol_disable)(struct net_device *netdev);
 };
@@ -207,8 +208,8 @@ static inline u32 star_is_set_bit(void __iomem *reg, u32 bit)
 	return data ? 1 : 0;
 }
 
-int star_get_wol_flag(star_private *star_prv);
-void star_set_wol_flag(star_private *star_prv, bool flag);
+int star_get_wol_flag(struct star_private *star_prv);
+void star_set_wol_flag(struct star_private *star_prv, bool flag);
 int star_get_dbg_level(void);
 void star_set_dbg_level(int dbg);
 u32 star_dma_rx_valid(u32 ctrl_len);

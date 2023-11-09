@@ -20,6 +20,54 @@ config MTK_USB_TYPEC_U3_MUX
 	  Say Y to enable TYPEC USB3.0 Mux
 	  If unsure, say N.
 
+config  TCPC_MT6392
+	bool "MediaTek USB TYPE-C Driver (MT6392)"
+	depends on MFD_MT6397
+	select MTK_USB_TYPEC
+	select MTK_USB_TYPEC_U3_MUX
+	select TCPC_MT6392_VBUS_CTRL
+	---help---
+	  Enables MT6392 supporting USB TYPE-C only.
+	  MT6392 can communicate with the partner
+	  and cable by attached CC pin.
+	  Also can be SRC/SNK and DFP/UFP. It is
+	  a dual role port.
+	  If unsure, say N.
+
+config  TCPC_MT6392_VBUS_CTRL
+	bool "MediaTek USB TYPE-C Driver (MT6392)"
+	depends on TCPC_MT6392
+	---help---
+	  Enables MT6392 supporting USB TYPE-C only.
+	  MT6392 can communicate with the partner
+	  and cable by attached CC pin.
+	  MT6392 typec need control vBus On/Off
+	  to match typec H/W state.
+	  If unsure, say N.
+
+config  TCPC_MT6392_VBUS_VCDT
+	bool "MediaTek USB TYPE-C Driver (MT6392)"
+	depends on TCPC_MT6392
+	default y
+	---help---
+	  Enables MT6392 supporting USB TYPE-C only.
+	  MT6392 can communicate with the partner
+	  and cable by attached CC pin.
+	  to strongly recommand to use MT6392 VCDT pin
+	  to monitor vBus status.
+	  If unsure, say N.
+
+config  TCPC_MT6392_VBUS_GPIO
+	bool "MediaTek USB TYPE-C Driver (MT6392)"
+	depends on MFD_MT6397
+	---help---
+	  Enables MT6392 supporting USB TYPE-C only.
+	  MT6392 can communicate with the partner
+	  and cable by attached CC pin.
+	  if some cause not to use MT6392 VCDT pin, and 
+	  use extra one gpio pin to monitor vBus status.
+	  If unsure, say N.
+
 config TCPC_MT6360
 	bool "MediaTek MT6360 TypeC port Controller Driver"
 	depends on TCPC_CLASS

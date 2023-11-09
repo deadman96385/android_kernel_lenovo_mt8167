@@ -41,6 +41,7 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/suspend.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/sched/clock.h>
@@ -351,7 +352,8 @@ static s32 cmdq_driver_copy_meta(void *src, void **dest, size_t copy_size,
 		return -EINVAL;
 
 	if (copy_size > max_size) {
-		CMDQ_ERR("source size exceed:%zu > %zu", copy_size, max_size);
+		CMDQ_MSG("[warn] source size exceed:%zu > %zu",
+			 copy_size, max_size);
 		return -EFAULT;
 	}
 
@@ -360,13 +362,13 @@ static s32 cmdq_driver_copy_meta(void *src, void **dest, size_t copy_size,
 	else
 		meta_buf = kzalloc(copy_size, GFP_KERNEL);
 	if (!meta_buf) {
-		CMDQ_ERR("allocate size fail:%zu\n", copy_size);
+		CMDQ_MSG("[warn] allocate size fail:%zu\n", copy_size);
 		return -ENOMEM;
 	}
 	*dest = meta_buf;
 
 	if (copy_from_user(meta_buf, src, copy_size)) {
-		CMDQ_ERR("fail to copy user data\n");
+		CMDQ_MSG("[warn] fail to copy user data\n");
 		return -EFAULT;
 	}
 
@@ -405,7 +407,8 @@ static long cmdq_driver_create_secure_medadata(
 	/* always clear to prevent free unknown memory */
 	pCommand->secData.addrMetadatas = 0;
 	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++) {
-		isp_bufs[i] = (void *)pCommand->secData.ispMeta.ispBufs[i].va;
+		isp_bufs[i] = (void *)(uintptr_t)
+			pCommand->secData.ispMeta.ispBufs[i].va;
 		pCommand->secData.ispMeta.ispBufs[i].va = 0;
 	}
 
@@ -460,12 +463,21 @@ static long cmdq_driver_create_secure_medadata(
 			isp_iwc_buf_size[i], true);
 		pCommand->secData.ispMeta.ispBufs[i].va =
 			(cmdqU32Ptr_t)(unsigned long)meta_buf;
-		if (ret < 0) {
-			CMDQ_ERR(
-				"[secData]copy meta %u size:%llu va:0x%llx ret:%d\n",
+
+		/* MT8168 Only use 3 Type */
+		if (ret < 0 && i <= CMDQ_SEC_ISP_TILE_TYPE) {
+			CMDQ_ERR("[Sec]meta %u size:%llu va:0x%llx ret:%d\n",
 				i, pCommand->secData.ispMeta.ispBufs[i].size,
 				pCommand->secData.ispMeta.ispBufs[i].va,
 				ret);
+
+			pCommand->secData.ispMeta.ispBufs[i].size = 0;
+		} else if (ret < 0) {
+			CMDQ_MSG("[Sec]meta %u size:%llu va:0x%llx ret:%d\n",
+				i, pCommand->secData.ispMeta.ispBufs[i].size,
+				pCommand->secData.ispMeta.ispBufs[i].va,
+				ret);
+
 			pCommand->secData.ispMeta.ispBufs[i].size = 0;
 		}
 	}
@@ -1171,6 +1183,9 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 	/* init cmdq context */
 	cmdq_mdp_init();
+
+	/* register mdp power domain control. */
+	pm_runtime_enable(&pDevice->dev);
 #if 0
 	cmdqCoreInitialize();
 #endif
@@ -1256,6 +1271,11 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 static int cmdq_remove(struct platform_device *pDevice)
 {
+	cmdq_mdp_deinit_pmqos();
+
+	/* unregister mdp power domain control. */
+	pm_runtime_disable(&pDevice->dev);
+
 	disable_irq(cmdq_dev_get_irq_id());
 
 	device_remove_file(&pDevice->dev, &dev_attr_error);

@@ -30,6 +30,6 @@
 #define PHYID2_DM8710A (0x0011)
 #define PHYID2_RTL8201FR (0xC816)
 
-int star_detect_phyid(star_dev *dev);
+int star_detect_phyid(struct star_dev *dev);
 
 #endif

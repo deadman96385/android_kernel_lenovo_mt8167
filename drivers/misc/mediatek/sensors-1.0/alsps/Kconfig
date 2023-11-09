@@ -16,5 +16,9 @@ config MTK_AUTO_DETECT_ALSPS
 	  usually only one ALSPS driver can be probed.
 
 source "drivers/misc/mediatek/sensors-1.0/alsps/alspshub/Kconfig"
-source "drivers/misc/mediatek/sensors-1.0/alsps/cm36558/Kconfig"
-source "drivers/misc/mediatek/sensors-1.0/alsps/ltr303/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/alsps/apds9500/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/alsps/apds9500-new/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/alsps/bh1749/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/alsps/vcnl4200/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/alsps/vcnl4200-new/Kconfig"
+

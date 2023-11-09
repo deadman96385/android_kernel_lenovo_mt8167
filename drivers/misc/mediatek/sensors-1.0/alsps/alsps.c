@@ -100,6 +100,14 @@ int rgbw_data_report_t(int *value, int64_t time_stamp)
 	event.word[1] = value[1];
 	event.word[2] = value[2];
 	event.word[3] = value[3];
+
+	#if 0
+	printk("===mlk===%s : event.word[0] = %d,value[0] = %d\n",__func__,event.word[0],value[0]);
+	printk("===mlk===%s : event.word[1] = %d,value[1] = %d\n",__func__,event.word[1],value[1]);
+	printk("===mlk===%s : event.word[2] = %d,value[2] = %d\n",__func__,event.word[2],value[2]);
+	printk("===mlk===%s : event.word[3] = %d,value[3] = %d\n",__func__,event.word[3],value[3]);
+	#endif
+	
 	err = sensor_input_event(cxt->als_mdev.minor, &event);
 	return err;
 }
@@ -169,7 +177,11 @@ int ps_flush_report(void)
 static void als_work_func(struct work_struct *work)
 {
 	struct alsps_context *cxt = NULL;
-	int value, status;
+  #if defined(CONFIG_MTK_ROHM_BH1749_COLOR_TEMPERATURE)
+  	int value[5], status;
+  #else
+  	int value, status;
+  #endif
 	int64_t nt;
 	struct timespec time;
 	int err;
@@ -184,12 +196,24 @@ static void als_work_func(struct work_struct *work)
 	time = get_monotonic_coarse();
 	nt = time.tv_sec * 1000000000LL + time.tv_nsec;
 	/* add wake lock to make sure data can be read before system suspend */
+    #if defined(CONFIG_MTK_ROHM_BH1749_COLOR_TEMPERATURE) 
+    	err = cxt->als_data.get_data(value, &status);
+    #else
 	err = cxt->als_data.get_data(&value, &status);
+     #endif
 	if (err) {
 		pr_err("get alsps data fails!!\n");
 		goto als_loop;
 	} else {
+		#if defined(CONFIG_MTK_ROHM_BH1749_COLOR_TEMPERATURE)
+		cxt->drv_data.als_data.values[0] = value[0];
+		cxt->drv_data.als_data.values[1] = value[1];
+		cxt->drv_data.als_data.values[2] = value[2];
+		cxt->drv_data.als_data.values[3] = value[3];
+		cxt->drv_data.als_data.values[4] = value[4];
+		#else
 		cxt->drv_data.als_data.values[0] = value;
+		#endif
 		cxt->drv_data.als_data.status = status;
 		cxt->drv_data.als_data.time = nt;
 	}
@@ -205,6 +229,9 @@ static void als_work_func(struct work_struct *work)
 	/* pr_debug(" als data[%d]\n" , cxt->drv_data.als_data.values[0]); */
 	als_data_report(cxt->drv_data.als_data.values[0],
 			cxt->drv_data.als_data.status);
+	#if defined(CONFIG_MTK_ROHM_BH1749_COLOR_TEMPERATURE)
+	rgbw_data_report(cxt->drv_data.als_data.values +1);
+	#endif
 
 als_loop:
 	if (true == cxt->is_als_polling_run)
@@ -903,6 +930,7 @@ static struct platform_driver als_ps_driver = {
 static int alsps_real_driver_init(void)
 {
 	int i = 0;
+	int j = 0;
 	int err = 0;
 
 	pr_debug("%s start\n", __func__);
@@ -915,6 +943,7 @@ static int alsps_real_driver_init(void)
 			if (err == 0) {
 				pr_debug(" alsps real driver %s probe ok\n",
 					  alsps_init_list[i]->name);
+			if (++j == 2)
 				break;
 			}
 		}

@@ -42,7 +42,6 @@
 #include <mtk_spm_vcore_dvfs.h>
 
 /* #include <mach/mt_wtd.h> */
-#include <mach/wd_api.h>
 #include <mtk_gpu_utility.h>
 #include <linux/time.h>
 
@@ -63,7 +62,9 @@
 #if defined(ATM_USES_PPM)
 #include "mtk_ppm_api.h"
 #else
+#ifndef CONFIG_MACH_MT8168
 #include "mt_cpufreq.h"
+#endif
 #endif
 
 #include <linux/uidgid.h>
@@ -303,7 +304,9 @@ mt_cpufreq_thermal_protect(unsigned int limited_power)
 	bool __attribute__ ((weak))
 mtk_get_gpu_loading(unsigned int *pLoading)
 {
+#ifdef CONFIG_MTK_GPU_SUPPORT
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
+#endif
 	return 0;
 }
 
@@ -2245,6 +2248,32 @@ static void init_thermal(void)
 	lvts_efuse_setting();
 #endif
 
+#if defined(TS_BANDGAP_VOLTAGE_ADJUST)
+	/*
+	 *  AP_TSENSE_CON0 default is 0x30202080, this is buffer off
+	 *  we should turn on this buffer berore we use thermal sensor,
+	 *  or this buffer off will let TC read a very small value from auxadc
+	 *  and this small value will trigger thermal reboot
+	 *  Set the Bandgap Voltage Adjust by R1 and R2.
+	 */
+	temp = readl(TS_CONFIGURE);
+
+
+	temp &= ~(TS_TURN_OFF);	/* AP_TSENSE_CON0[29:28]=2'b11 11: Buffer off,
+				 *	00: Buffer on, TSMCU to AUXADC
+				 */
+
+	temp |= BVA_R2_ADJ;	/* AP_TSENSE_CON0[11:8]=4'b0000,
+				 *	Bandgap Voltage Adjust, R2 (denominator)
+				 *	[3:0] R2 Adjust TS_ABB[26:23]
+				 */
+
+	temp |= BVA_R1_ADJ;	/* AP_TSENSE_CON0[5:2]=4'b0000,
+				 *	Bandgap Voltage Adjust, R1 (numerator)
+				 *	[3:0] R1 Adjust TS_ABB[31:28]
+				 */
+
+#else
 	/*
 	 *  TS_CON1 default is 0x30, this is buffer off
 	 *  we should turn on this buffer berore we use thermal sensor,
@@ -2260,19 +2289,10 @@ static void init_thermal(void)
 	 */
 	temp = readl(TS_CONFIGURE);
 
-
-	/*
-	 * TS_CON1[5:4]=2'b00,   00: Buffer on,
-	 *	TSMCU to AUXADC
-	 */
-
-	/*
-	 * mt6768 TS_CON0[29:28]=2'b00,   00: Buffer on,
-	 *	TSMCU to AUXADC
-	 */
-	temp &= ~(TS_TURN_OFF);
-
-
+	temp &= ~(TS_TURN_OFF);	/* TS_CON1[5:4]=2'b00,   00: Buffer on,
+				 *	TSMCU to AUXADC
+				 */
+#endif
 
 	mt_reg_sync_writel(temp, TS_CONFIGURE);	/* read abb need */
 	/* RG_TS2AUXADC < set from 2'b11 to 2'b00

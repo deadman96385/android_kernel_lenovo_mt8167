@@ -67,9 +67,6 @@
 #include "mmc_ops.h"
 #include "quirks.h"
 #include "sd_ops.h"
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-#include "dbg.h"
-#endif
 
 MODULE_ALIAS("mmc:block");
 #ifdef MODULE_PARAM_PREFIX
@@ -190,6 +187,7 @@ static void mmc_blk_put(struct mmc_blk_data *md)
 	md->usage--;
 	if (md->usage == 0) {
 		int devidx = mmc_get_devidx(md->disk);
+		blk_cleanup_queue(md->queue.queue);
 		ida_simple_remove(&mmc_blk_ida, devidx);
 		put_disk(md->disk);
 		kfree(md);
@@ -877,251 +875,6 @@ static int mt_ffu_mmc_blk_check_blkdev(struct block_device *bdev,
 }
 #endif
 
-#define MMC_BLK_NO_WP           0
-#define MMC_BLK_PARTIALLY_WP    1
-#define MMC_BLK_FULLY_WP        2
-static int mmc_blk_check_disk_range_wp(struct gendisk *disk,
-	sector_t part_start, sector_t part_nr_sects)
-{
-	struct mmc_command cmd = {0};
-	struct mmc_request mrq = {NULL};
-	struct mmc_data data = {0};
-	struct mmc_blk_data *md;
-	struct mmc_card *card;
-	struct scatterlist sg;
-	unsigned char *buf = NULL, status;
-	sector_t start, end, quot;
-	sector_t wp_grp_rem, wp_grp_total, wp_grp_found, status_query_cnt;
-	unsigned int remain;
-	int err = 0, i, j, k;
-	u8 boot_wp_status = 0;
-#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
-	bool cmdq_en = false;
-#endif
-
-	md = mmc_blk_get(disk);
-	if (!md)
-		return -EINVAL;
-
-	if (!md->queue.card) {
-		err = -EINVAL;
-		goto out2;
-	}
-
-	card = md->queue.card;
-	if (!mmc_card_mmc(card) ||
-		md->part_type == EXT_CSD_PART_CONFIG_ACC_RPMB) {
-		err = MMC_BLK_NO_WP;
-		goto out2;
-	}
-
-	/* BOOT_WP_STATUS in EXT_CSD:
-	 * |-----bit[7:4]-----|-------bit[3:2]--------|-------bit[1:0]--------|
-	 * |-----reserved-----|----boot1 wp status----|----boot0 wp status----|
-	 * boot0 area wp type:depending on bit[1:0]
-	 * 0->not wp; 1->power on wp; 2->permanent wp; 3:reserved value
-	 * boot1 area wp type:depending on bit[3:2]
-	 * 0->not wp; 1->power on wp; 2->permanent wp; 3:reserved value
-	 */
-	if (md->part_type == EXT_CSD_PART_CONFIG_ACC_BOOT0) {
-		boot_wp_status = card->ext_csd.boot_wp_status & 0x3;
-		if (boot_wp_status == 0x1 || boot_wp_status == 0x2) {
-			pr_notice("%s is fully write protected\n",
-				disk->disk_name);
-			err = MMC_BLK_FULLY_WP;
-		} else
-			err = MMC_BLK_NO_WP;
-		goto out2;
-	}
-
-	/* EXT_CSD_PART_CONFIG_ACC_BOOT0 + 1 <=> BOOT1 */
-	if (md->part_type == (EXT_CSD_PART_CONFIG_ACC_BOOT0 + 1)) {
-		boot_wp_status = (card->ext_csd.boot_wp_status >> 2) & 0x3;
-		if (boot_wp_status == 0x1 || boot_wp_status == 0x2) {
-			pr_notice("%s is fully write protected\n",
-				disk->disk_name);
-			err = MMC_BLK_FULLY_WP;
-		} else
-			err = MMC_BLK_NO_WP;
-		goto out2;
-	}
-	if (!card->wp_grp_size) {
-		pr_notice("Write protect group size cannot be 0!\n");
-		err = -EINVAL;
-		goto out2;
-	}
-
-	start = part_start;
-	quot = start;
-	remain = do_div(quot, card->wp_grp_size);
-	if (remain) {
-		pr_notice("Start 0x%llx of disk %s not write group aligned\n",
-			(unsigned long long)part_start, disk->disk_name);
-		start -= remain;
-	}
-
-	end = part_start + part_nr_sects;
-	quot = end;
-	remain = do_div(quot, card->wp_grp_size);
-	if (remain) {
-		pr_notice("End 0x%llx of disk %s not write group aligned\n",
-			(unsigned long long)part_start, disk->disk_name);
-		end += card->wp_grp_size - remain;
-	}
-	wp_grp_total = end - start;
-	do_div(wp_grp_total, card->wp_grp_size);
-	wp_grp_rem = wp_grp_total;
-	wp_grp_found = 0;
-
-	cmd.opcode = MMC_SEND_WRITE_PROT_TYPE;
-	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_AC;
-
-	buf = kmalloc(8, GFP_KERNEL);
-	if (!buf) {
-		err = -ENOMEM;
-		goto out2;
-	}
-	sg_init_one(&sg, buf, 8);
-
-	data.blksz = 8;
-	data.blocks = 1;
-	data.flags = MMC_DATA_READ;
-	data.sg = &sg;
-	data.sg_len = 1;
-	mmc_set_data_timeout(&data, card);
-
-	mrq.cmd = &cmd;
-	mrq.data = &data;
-
-	mmc_get_card(card);
-
-	err = mmc_blk_part_switch(card, md->part_type);
-	if (err) {
-		err = -EIO;
-		goto out;
-	}
-
-#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
-	cmdq_en = !!mmc_card_cmdq(card);
-	if (cmdq_en) {
-		err = mmc_cmdq_disable(card);
-		if (err) {
-			pr_notice("%s, %s: disable cmdq error %d\n",
-				__func__, mmc_hostname(card->host), err);
-			err = -EIO;
-			goto out;
-		}
-	}
-#endif
-
-	status_query_cnt = (wp_grp_total + 31) / 32;
-	for (i = 0; i < status_query_cnt; i++) {
-		cmd.arg = start + i * card->wp_grp_size * 32;
-		mmc_wait_for_req(card->host, &mrq);
-		if (cmd.error) {
-			pr_notice("%s: cmd error %d\n", __func__, cmd.error);
-			err = -EIO;
-			goto out;
-		}
-
-		/* wp status is returned in 8 bytes.
-		 * The 8 bytes is regarded as 64-bits bit-stream:
-		 * +--------+--------+-------------------------+--------+
-		 * | byte 7 | byte 6 |           ...           | byte 0 |
-		 * |  bits  |  bits  |                         |  bits  |
-		 * |76543210|76543210|                         |76543210|
-		 * +--------+--------+-------------------------+--------+
-		 *   The 2 LSBits represent write-protect group status of
-		 *       the lowest address group being queried.
-		 *   The 2 MSBits represent write-protect group status of
-		 *       the highst address group being queried.
-		 */
-		/* Check write-protect group status from lowest address
-		 *   group to highest address group
-		 */
-		for (j = 0; j < 8; j++) {
-			status = buf[7 - j];
-			for (k = 0; k < 8; k += 2) {
-				if (status & (3 << k))
-					wp_grp_found++;
-				wp_grp_rem--;
-				if (!wp_grp_rem)
-					goto out;
-			}
-		}
-
-		memset(buf, 0, 8);
-	}
-
-out:
-#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
-	if (cmdq_en) {
-		err = mmc_cmdq_enable(card);
-		if (err) {
-			pr_notice("%s, %s: enable cmdq error %d\n",
-				__func__, mmc_hostname(card->host), err);
-			err = -EIO;
-		}
-	}
-#endif
-
-	mmc_put_card(card);
-	if (!wp_grp_rem) {
-		if (!wp_grp_found)
-			err = MMC_BLK_NO_WP;
-		else if (wp_grp_found == wp_grp_total) {
-			pr_notice("0x%llx ~ 0x%llx of %s is fully write protected\n",
-				(unsigned long long)part_start,
-				(unsigned long long)part_start + part_nr_sects,
-				disk->disk_name);
-			err = MMC_BLK_FULLY_WP;
-		} else {
-			pr_notice("0x%llx ~ 0x%llx of %s is partially write protected\n",
-				(unsigned long long)part_start,
-				(unsigned long long)part_start + part_nr_sects,
-				disk->disk_name);
-			err = MMC_BLK_PARTIALLY_WP;
-		}
-	}
-
-	kfree(buf);
-
-out2:
-	mmc_blk_put(md);
-	return err;
-}
-
-static int mmc_blk_check_wp(struct block_device *bdev)
-{
-	if (!bdev->bd_disk || !bdev->bd_part)
-		return -EINVAL;
-
-	return mmc_blk_check_disk_range_wp(bdev->bd_disk,
-		bdev->bd_part->start_sect,
-		bdev->bd_part->nr_sects);
-}
-
-static int mmc_blk_ioctl_roset(struct block_device *bdev,
-	unsigned long arg)
-{
-	int val;
-
-	/* Always return -EACCES to block layer on any error
-	 * and then block layer will abort the remaining operation
-	 */
-	if (get_user(val, (int __user *)arg))
-		return -EACCES;
-
-	/* No need to check write-protect status when setting as readonly */
-	if (val)
-		return 0;
-
-	if (mmc_blk_check_wp(bdev) != MMC_BLK_NO_WP)
-		return -EACCES;
-
-	return 0;
-}
-
 static int mmc_blk_check_blkdev(struct block_device *bdev)
 {
 	/*
@@ -1186,8 +939,6 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 	case MMC_IOC_WP_CMD:
 		return mmc_pwr_wp_ioctl(bdev, arg);
 #endif
-	case BLKROSET:
-		return mmc_blk_ioctl_roset(bdev, arg);
 
 	default:
 		return -EINVAL;
@@ -1211,7 +962,6 @@ static const struct block_device_operations mmc_bdops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl		= mmc_blk_compat_ioctl,
 #endif
-	.check_disk_range_wp	= mmc_blk_check_disk_range_wp,
 };
 
 static int mmc_blk_part_switch_pre(struct mmc_card *card,
@@ -1834,7 +1584,7 @@ static void mmc_blk_issue_drv_op(struct mmc_queue *mq, struct request *req)
 		ret = mmc_get_ext_csd(card, ext_csd);
 		break;
 	default:
-		pr_notice("%s: unknown driver specific operation:%d\n",
+		pr_err("%s: unknown driver specific operation:%d\n",
 		       md->disk->disk_name, mq_rq->drv_op);
 		ret = -EINVAL;
 		break;
@@ -2125,11 +1875,6 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	int need_retune = card->host->need_retune;
 	bool ecc_err = false;
 	bool gen_err = false;
-	bool cmdq_en = false;
-
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	cmdq_en = mmc_card_cmdq(card);
-#endif
 
 	/*
 	 * sbc.error indicates a problem with the set block count
@@ -2141,7 +1886,10 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	 * stop.error indicates a problem with the stop command.  Data
 	 * may have been transferred, or may still be transferring.
 	 */
-	if (!cmdq_en) {
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (!areq->cmdq_en) {
+#endif
+
 		mmc_blk_eval_resp_error(brq);
 
 		if (brq->sbc.error || brq->cmd.error ||
@@ -2158,7 +1906,9 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 				break;
 			}
 		}
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	}
+#endif
 
 	/*
 	 * Check for errors relating to the execution of the
@@ -2177,7 +1927,10 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	 * program mode, which we have to wait for it to complete.
 	 */
 	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ
-		&& !cmdq_en) {
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	&& !areq->cmdq_en
+#endif
+	) {
 		int err;
 
 		/* Check stop command response */
@@ -2356,9 +2109,6 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	struct request *req = mmc_queue_req_to_req(mqrq);
 	struct mmc_blk_data *md = mq->blkdata;
 	bool do_rel_wr, do_data_tag;
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	bool cmdq_en = mmc_card_cmdq(card);
-#endif
 
 	mmc_blk_data_prep(mq, mqrq, disable_multi, &do_rel_wr, &do_data_tag);
 
@@ -2384,7 +2134,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		writecmd = MMC_WRITE_BLOCK;
 	}
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (cmdq_en) {
+	if (mmc_card_cmdq(card)) {
 		readcmd = MMC_EXECUTE_READ_TASK;
 		writecmd = MMC_EXECUTE_WRITE_TASK;
 	}
@@ -2423,7 +2173,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 
 	mqrq->areq.err_check = mmc_blk_err_check;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (cmdq_en) {
+	if (mmc_card_cmdq(card)) {
 		int rt = IS_RT_CLASS_REQ(req);
 
 		brq->mrq.flags = rt;
@@ -2500,7 +2250,7 @@ static void mmc_blk_rw_cmd_abort(struct mmc_queue *mq, struct mmc_card *card,
 	if (mmc_card_removed(card))
 		req->rq_flags |= RQF_QUIET;
 	while (blk_end_request(req, BLK_STS_IOERR, blk_rq_cur_bytes(req)));
-	atomic_dec(&mq->qcnt);
+	mq->qcnt--;
 }
 
 /**
@@ -2520,7 +2270,7 @@ static void mmc_blk_rw_try_restart(struct mmc_queue *mq, struct request *req,
 	if (mmc_card_removed(mq->card)) {
 		req->rq_flags |= RQF_QUIET;
 		blk_end_request_all(req, BLK_STS_IOERR);
-		atomic_dec(&mq->qcnt); /* FIXME: just set to 0? */
+		mq->qcnt--; /* FIXME: just set to 0? */
 		return;
 	}
 	/* Else proceed and try to restart the current async request */
@@ -2693,7 +2443,9 @@ int mmc_blk_cmdq_issue_flush_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_cmdq_req *cmdq_req;
 	struct mmc_cmdq_context_info *ctx_info;
 
+	WARN_ON(!card); /*bug*/
 	host = card->host;
+	WARN_ON(!host); /*bug*/
 	WARN_ON(req->tag > card->ext_csd.cmdq_depth); /*bug*/
 	WARN_ON(test_and_set_bit(req->tag,
 		&host->cmdq_ctx.active_reqs)); /*bug*/
@@ -2842,6 +2594,26 @@ out:
 	return -ENOENT;
 }
 
+static struct request *cmdq_dcmd_req(struct request_queue *q,
+	int tag)
+{
+	struct request *req;
+	struct mmc_queue_req *mq_rq;
+	struct mmc_cmdq_req *cmdq_req;
+
+	req = blk_queue_find_tag(q, tag);
+	if (WARN_ON(!req))
+		goto out;
+	mq_rq = req->special;
+	if (WARN_ON(!mq_rq))
+		goto out;
+	cmdq_req = &(mq_rq->cmdq_req);
+	if (cmdq_req->cmdq_req_flags & DCMD)
+		return req;
+out:
+	return NULL;
+}
+
 /**
  * mmc_blk_cmdq_reset_all - Reset everything for CMDQ block request.
  * @host:	mmc_host pointer.
@@ -2877,6 +2649,52 @@ static void mmc_blk_cmdq_reset_all(struct mmc_host *host, int err)
 	/* Try to discard entire queue */
 	if (!ret)
 		ret = mmc_cmdq_discard_queue(host, 0);
+
+	/* need refine, add timeout handling */
+	while (test_bit(CMDQ_STATE_FETCH_QUEUE, &ctx_info->curr_state)) {
+		pr_notice("%s: %s: queue is on-going wait\n",
+				mmc_hostname(host), __func__);
+		msleep(100);
+
+		if (!test_bit(CMDQ_STATE_DCMD_ACTIVE,
+			&ctx_info->curr_state))
+			continue;
+
+		/*
+		 * if in dcmd state, complete it first
+		 * or else it will stuck in wait for completion
+		 */
+		for_each_set_bit(itag, &ctx_info->active_reqs,
+				host->num_cq_slots) {
+			struct request *d_req;
+			struct mmc_queue_req *d_mq_rq;
+			struct mmc_request *d_mrq;
+
+			d_req = cmdq_dcmd_req(q, itag);
+
+			if (d_req) {
+				d_mq_rq = d_req->special;
+				d_mrq = &d_mq_rq->cmdq_req.mrq;
+
+				d_mrq->cmd->error = -ETIMEDOUT;
+				if (!d_mrq->done)
+					break;
+
+				d_mrq->done(d_mrq);
+				clear_bit(CMDQ_STATE_DCMD_ACTIVE,
+					&ctx_info->curr_state);
+
+				WARN_ON(!test_and_clear_bit(itag,
+					&ctx_info->active_reqs));
+				pr_notice("%s: %s: clear active_reqs itag = %d (dcmd)\n",
+					mmc_hostname(host),
+					__func__,
+					itag);
+				mmc_put_card(card);
+				break;
+			}
+		}
+	};
 
 	/*
 	 * If recovery or discard fail, reset device.
@@ -2955,8 +2773,6 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 
 	WARN_ON(!host); /*bug*/
 
-	if (host->cmdq_ops->dumpstate)
-		host->cmdq_ops->dumpstate(host, true);
 	/*
 	 * The mmc_queue_req will be present only if the request
 	 * is issued to the LLD. The request could be fetched from
@@ -3020,18 +2836,15 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	int err, ret;
 	u32 status = 0;
 
-	if (WARN_ON(!mrq))
-		return;
-
 	pr_notice("%s: %s err req = %p, err tag = %d\n",
 		mmc_hostname(host), __func__, mrq->req, mrq->req->tag);
 
-	if (host->cmdq_ops->dumpstate && !mrq->cmdq_req->skip_dump)
+	if (host->cmdq_ops->dumpstate)
 		host->cmdq_ops->dumpstate(host, true);
 
-	down_write(&ctx_info->err_rwsem);
-	pr_notice("%s: %s Starting cmdq Error handler\n",
-		mmc_hostname(host), __func__);
+	if (WARN_ON(!mrq))
+		return;
+
 	q = mrq->req->q;
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
@@ -3090,18 +2903,11 @@ reset:
 	mmc_blk_cmdq_reset_all(host, err);
 	if (mrq->cmdq_req->resp_err)
 		mrq->cmdq_req->resp_err = false;
-	if (mrq->cmdq_req->skip_dump)
-		mrq->cmdq_req->skip_dump = false;
-	if (mrq->cmdq_req->skip_reset)
-		mrq->cmdq_req->skip_reset = false;
-
 	mmc_cmdq_halt(host, false);
 
 	host->err_mrq = NULL;
 	clear_bit(CMDQ_STATE_REQ_TIMED_OUT, &ctx_info->curr_state);
 	WARN_ON(!test_and_clear_bit(CMDQ_STATE_ERR, &ctx_info->curr_state));
-
-	up_write(&ctx_info->err_rwsem);
 	wake_up(&ctx_info->wait);
 }
 
@@ -3115,44 +2921,22 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	struct mmc_cmdq_req *cmdq_req = &mq_rq->cmdq_req;
 	struct mmc_queue *mq = (struct mmc_queue *)rq->q->queuedata;
 	int err = 0;
-	int err_resp = 0;
 	bool is_dcmd = false;
-	bool err_rwsem = false;
-	int cpu = -1;
-
-	if (down_read_trylock(&ctx_info->err_rwsem)) {
-		err_rwsem = true;
-	} else {
-		pr_notice("%s: err_rwsem lock failed to acquire => err handler active\n",
-			__func__);
-		WARN_ON_ONCE(!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state));
-		goto out;
-	}
 
 	if (mrq->cmd && mrq->cmd->error)
 		err = mrq->cmd->error;
 	else if (mrq->data && mrq->data->error)
 		err = mrq->data->error;
-	if (cmdq_req->resp_err)
-		err_resp = cmdq_req->resp_err;
 
 #ifdef MMC_CQHCI_DEBUG
 	pr_debug("%s: %s completed req = 0x%p, err = %d, tag = %d\n",
 		mmc_hostname(host), __func__, mrq->req, err, cmdq_req->tag);
 #endif
 
-	/* softirq dump */
-	cpu = smp_processor_id();
-	dbg_add_sirq_log(host, MAGIC_CQHCI_DBG_TYPE_SIRQ,
-			err,
-			cmdq_req->tag,
-			cpu,
-			ctx_info->data_active_reqs);
-
-	if ((err || err_resp) && !cmdq_req->skip_err_handling) {
+	if ((err || cmdq_req->resp_err) && !cmdq_req->skip_err_handling) {
 		pr_notice("%s: %s: txfr error(%d)/resp_err(%d)\n",
 				mmc_hostname(mrq->host), __func__, err,
-				err_resp);
+				cmdq_req->resp_err);
 		if (test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state)) {
 			pr_notice("%s: CQ in error state, ending current req: %d\n",
 				__func__, err);
@@ -3166,6 +2950,16 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 			schedule_work(&mq->cmdq_err_work);
 		}
 		goto out;
+	}
+	/*
+	 * In case of error CMDQ is expected to be either in halted
+	 * or disable state so cannot receive any completion of
+	 * other requests.
+	 */
+	if (test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state)) {
+		pr_notice("%s: %s CMDQ_STATE_ERR done req = 0x%p, err = %d, tag = %d\n",
+			mmc_hostname(host), __func__, mrq->req, err, rq->tag);
+		WARN_ON(1); /*bug*/
 	}
 
 	/* clear pending request */
@@ -3203,13 +2997,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	blk_end_request(rq, err, cmdq_req->data.bytes_xfered);
 
 out:
-	/*
-	 * Instead of checking host CMDQ_STATE_ERR state,
-	 * use local variable here to prevent some race condition.
-	 * ex. The previous request complete with no error but
-	 * CMDQ_STATE_ERR had just been set in an instant.
-	 */
-	if (err_rwsem && !(err || err_resp)) {
+	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state)) {
 		wake_up(&ctx_info->wait);
 		mmc_put_card(host->card);
 	}
@@ -3219,9 +3007,6 @@ out:
 
 	if (blk_queue_stopped(mq->queue) && !ctx_info->active_reqs)
 		complete(&mq->cmdq_shutdown_complete);
-
-	if (err_rwsem)
-		up_read(&ctx_info->err_rwsem);
 }
 
 /*
@@ -3252,6 +3037,8 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 	bool req_pending = true;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_host *mmc;
+
 	if (mmc_card_cmdq(card) && !new_req) {
 		mmc_wait_cmdq_empty(card->host);
 		return;
@@ -3260,15 +3047,10 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 
 	if (new_req) {
 		mqrq_cur = req_to_mmc_queue_req(new_req);
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-		if (mmc_card_cmdq(card))
-			mqrq_cur->sg =
-				mq->mqrq[atomic_read(&mqrq_cur->index) - 1].sg;
-#endif
-		atomic_inc(&mq->qcnt);
+		mq->qcnt++;
 	}
 
-	if (!atomic_read(&mq->qcnt))
+	if (!mq->qcnt)
 		return;
 
 	mt_biolog_mmcqd_req_check();
@@ -3280,10 +3062,10 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			 */
 			if (mmc_large_sector(card) &&
 				!IS_ALIGNED(blk_rq_sectors(new_req), 8)) {
-				pr_notice("%s: Transfer size is not 4KB sector size aligned\n",
+				pr_err("%s: Transfer size is not 4KB sector size aligned\n",
 					new_req->rq_disk->disk_name);
-				mmc_blk_rw_cmd_abort(mq, card,
-					new_req, mqrq_cur);
+				mmc_blk_rw_cmd_abort(mq, card, new_req,
+							mqrq_cur);
 				return;
 			}
 
@@ -3291,9 +3073,12 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			new_areq = &mqrq_cur->areq;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 			if (mmc_card_cmdq(card)) {
+				new_areq->cmdq_en = true;
 				card->host->areq_que[
 					atomic_read(&mqrq_cur->index) - 1] =
 					new_areq;
+			} else {
+				new_areq->cmdq_en = false;
 			}
 #endif
 		} else
@@ -3329,6 +3114,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 			if (status == MMC_BLK_SUCCESS) {
 				req_pending = 0;
+				mmc = brq->mrq.host;
 				spin_lock_irq(&md->lock);
 				blk_complete_request(old_req);
 				spin_unlock_irq(&md->lock);
@@ -3359,12 +3145,12 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 				if (req_pending)
 					mmc_blk_rw_cmd_abort(mq, card, old_req, mq_rq);
 				else
-					atomic_dec(&mq->qcnt);
+					mq->qcnt--;
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;
 			}
 			if (!req_pending) {
-				atomic_dec(&mq->qcnt);
+				mq->qcnt--;
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;
 			}
@@ -3409,7 +3195,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			req_pending = blk_end_request(old_req, BLK_STS_IOERR,
 						      brq->data.blksz);
 			if (!req_pending) {
-				atomic_dec(&mq->qcnt);
+				mq->qcnt--;
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;
 			}
@@ -3439,7 +3225,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 		}
 	} while (req_pending);
 
-	atomic_dec(&mq->qcnt);
+	mq->qcnt--;
 }
 
 /* check if the partition support cmdq or not */
@@ -3448,12 +3234,7 @@ bool mmc_blk_part_cmdq_en(struct mmc_queue *mq)
 #if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 	int ret = false;
 	struct mmc_blk_data *md = mq->blkdata;
-	struct mmc_card *card;
-
-	if (!md)
-		return false;
-
-	card = md->queue.card;
+	struct mmc_card *card = md->queue.card;
 
 	/* enable cmdq at support partition */
 	if (card->ext_csd.cmdq_support
@@ -3475,6 +3256,7 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 	struct mmc_blk_data *md;
 	struct mmc_card *card = host->card;
 	struct mmc_blk_request *brq;
+	struct mmc_host *mmc;
 	int ret = 1, type, areq_cnt;
 	struct mmc_queue_req *mq_rq;
 	struct request *req;
@@ -3495,6 +3277,7 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 		 */
 		mmc_blk_reset_success(md, type);
 
+		mmc = brq->mrq.host;
 #ifdef CONFIG_HIE
 		hie_req_end_size(req, brq->data.bytes_xfered);
 #endif
@@ -3517,7 +3300,6 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 		}
 		mmc_put_card(card);
 		atomic_set(&mq->mqrq[index].index, 0);
-		atomic_dec(&mq->qcnt);
 		atomic_dec(&host->areq_cnt);
 		break;
 	case MMC_BLK_CMD_ERR:
@@ -3551,7 +3333,6 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 		mmc_put_card(card);
 
 		atomic_set(&mq->mqrq[index].index, 0);
-		atomic_dec(&mq->qcnt);
 		atomic_dec(&host->areq_cnt);
 
 		if (!ret)
@@ -3589,12 +3370,9 @@ cmd_abort:
 
 	mq->mqrq[index].req = NULL;
 	host->areq_que[index] = NULL;
-	/* Add for coverity check, it shouldn't be NULL */
-	if (card)
-		mmc_put_card(card);
+	mmc_put_card(card);
 
 	atomic_set(&mq->mqrq[index].index, 0);
-	atomic_dec(&mq->qcnt);
 	atomic_dec(&host->areq_cnt);
 
 start_new_req:
@@ -3713,7 +3491,6 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		if (mmc_req_is_special(req) &&
 		    (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
 		    ctx->active_small_sector_read_reqs) {
-			mmc_cmdq_up_rwsem(host);
 			ret = wait_event_interruptible(ctx->queue_empty_wq,
 						      !ctx->active_reqs);
 			if (ret) {
@@ -3724,7 +3501,6 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 			}
 			/* clear the counter now */
 			ctx->active_small_sector_read_reqs = 0;
-			ret = mmc_cmdq_down_rwsem(host, req);
 			/*
 			 * If there were small sector (less than 8 sectors) read
 			 * operations in progress then we have to wait for the
@@ -3770,11 +3546,8 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_blk_data *md = mq->blkdata;
 	struct mmc_card *card = md->queue.card;
 	bool part_cmdq_en = mmc_blk_part_cmdq_en(mq);
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	bool put_card = false;
-#endif
 
-	if (part_cmdq_en || (req && !atomic_read(&mq->qcnt)))
+	if (part_cmdq_en || (req && !mq->qcnt))
 		/* non-cq: claim host only for the first request
 		 * cq: claim host for per request
 		 */
@@ -3801,48 +3574,36 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			 * Complete ongoing async transfer before issuing
 			 * ioctl()s
 			 */
-			if (atomic_read(&mq->qcnt))
+			if (mq->qcnt)
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_drv_op(mq, req);
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-			put_card = true;
-#endif
 			break;
 		case REQ_OP_DISCARD:
 			/*
 			 * Complete ongoing async transfer before issuing
 			 * discard.
 			 */
-			if (atomic_read(&mq->qcnt))
+			if (mq->qcnt)
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_discard_rq(mq, req);
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-			put_card = true;
-#endif
 			break;
 		case REQ_OP_SECURE_ERASE:
 			/*
 			 * Complete ongoing async transfer before issuing
 			 * secure erase.
 			 */
-			if (atomic_read(&mq->qcnt))
+			if (mq->qcnt)
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_secdiscard_rq(mq, req);
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-			put_card = true;
-#endif
 			break;
 		case REQ_OP_FLUSH:
 			/*
 			 * Complete ongoing async transfer before issuing
 			 * flush.
 			 */
-			if (atomic_read(&mq->qcnt))
+			if (mq->qcnt)
 				mmc_blk_issue_rw_rq(mq, NULL);
 			mmc_blk_issue_flush(mq, req);
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-			put_card = true;
-#endif
 			break;
 		default:
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
@@ -3871,23 +3632,8 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	}
 
 out:
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	/*
-	 * Since CQ has its own thread to handle mmc_put_card().
-	 * We don't call mmc_put_card() for read/write requests.
-	 *
-	 * But for request REQ_OP_DRV_IN REQ_OP_DRV_OUT
-	 * REQ_OP_DISCARD REQ_OP_SECURE_ERASE REQ_OP_FLUSH
-	 * which is other than read/write request needs to
-	 * call mmc_put_card() here.
-	 */
-	if (part_cmdq_en) {
-		if (put_card)
-			mmc_put_card(card);
-	} else
-#endif
-		if (!atomic_read(&mq->qcnt))
-			mmc_put_card(card);
+	if (!mq->qcnt)
+		mmc_put_card(card);
 }
 
 static inline int mmc_blk_readonly(struct mmc_card *card)
@@ -4152,6 +3898,7 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 {
 	int ret;
 	struct mmc_card *card = md->queue.card;
+
 	device_add_disk(md->parent, md->disk);
 	md->force_ro.show = force_ro_show;
 	md->force_ro.store = force_ro_store;

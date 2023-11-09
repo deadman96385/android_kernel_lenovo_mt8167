@@ -37,7 +37,7 @@
 #define MTK_VCODEC_ENC_NAME     "mtk-vcodec-enc"
 #define MTK_VCU_FW_VERSION      "0.2.14"
 
-#define MTK_SLOWMOTION_GCE_TH   120
+#define MTK_SLOWMOTION_GCE_TH   240
 #define MTK_VCODEC_MAX_PLANES   3
 #define MTK_V4L2_BENCHMARK      0
 #define WAIT_INTR_TIMEOUT_MS    500
@@ -87,6 +87,8 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_BITRATE_MODE = (1 << 11),
 	MTK_ENCODE_PARAM_ROI_ON = (1 << 12),
 	MTK_ENCODE_PARAM_GRID_SIZE = (1 << 13),
+	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 14),
+	MTK_ENCODE_PARAM_TSVC = (1 << 14),
 };
 
 /*
@@ -210,6 +212,9 @@ struct mtk_enc_params {
 	unsigned int    heif_grid_size;
 	unsigned int    max_w;
 	unsigned int    max_h;
+	unsigned int    svp_mode;
+	unsigned int    tsvc;
+
 };
 
 /*
@@ -252,6 +257,8 @@ struct venc_enc_param {
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
 	unsigned int max_w;
 	unsigned int max_h;
+	unsigned int svp_mode;
+	unsigned int tsvc;
 };
 
 /*
@@ -262,7 +269,7 @@ struct venc_enc_param {
 struct venc_frm_buf {
 	struct mtk_vcodec_mem fb_addr[MTK_VCODEC_MAX_PLANES];
 	unsigned int num_planes;
-	unsigned long timestamp;
+	u64 timestamp;
 	unsigned int roimap;
 };
 

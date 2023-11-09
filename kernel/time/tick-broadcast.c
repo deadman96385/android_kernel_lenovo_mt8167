@@ -24,8 +24,6 @@
 
 #include "tick-internal.h"
 
-#define CONFIG_MTK_TICK_BROADCAST_AEE_DUMP
-
 #if defined(CONFIG_MTK_RAM_CONSOLE)
 #if defined(CONFIG_MTK_TICK_BROADCAST_AEE_DUMP)
 #include <linux/cpumask.h>

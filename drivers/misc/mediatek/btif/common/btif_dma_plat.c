@@ -874,9 +874,7 @@ int hal_dma_send_data(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 		       p_data, len_to_send - tail_len);
 /*make sure all data write to memory area tx vfifo locates*/
 		mb();
-#ifdef CONFIG_ARM64
-		__dma_flush_area((void *)p_buf, buf_len);
-#endif
+
 /*calculate WPT*/
 		wpt = wpt + len_to_send - vff_size;
 		last_wpt_wrap ^= DMA_WPT_WRAP;
@@ -885,9 +883,7 @@ int hal_dma_send_data(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 		       p_data, len_to_send);
 /*make sure all data write to memory area tx vfifo locates*/
 		mb();
-#ifdef CONFIG_ARM64
-		__dma_flush_area((void *)p_buf, buf_len);
-#endif
+
 /*calculate WPT*/
 		wpt += len_to_send;
 	}

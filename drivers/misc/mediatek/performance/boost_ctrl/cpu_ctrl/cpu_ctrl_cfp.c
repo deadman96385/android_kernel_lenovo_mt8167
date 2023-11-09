@@ -18,6 +18,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/cpufreq.h>
 
 #include "cpu_ctrl.h"
 #include "boost_ctrl.h"
@@ -83,6 +84,14 @@ static int cfp_get_idx_by_freq(int clu_idx, int freq)
 static void set_cfp_ppm(struct ppm_limit_data *desired_freq, int headroom_opp)
 {
 	int clu_idx, cfp_ceiling_opp;
+	struct cpufreq_policy **policy;
+	struct cpumask cpus_mask;
+
+	policy = kcalloc(perfmgr_clusters, sizeof(struct cpufreq_policy *),
+			GFP_KERNEL);
+
+	if (!policy)
+		return;
 
 	cfp_lockprove(__func__);
 	for_each_perfmgr_clusters(clu_idx) {
@@ -105,11 +114,30 @@ static void set_cfp_ppm(struct ppm_limit_data *desired_freq, int headroom_opp)
 		perfmgr_trace_count(cfp_freq[clu_idx].max,
 			"cfp_max%d", clu_idx);
 #endif
-	}
+
 #ifdef CONFIG_TRACING
 	perfmgr_trace_count(cc_is_ceiled, "cfp_ceiled");
 #endif
-	mt_ppm_userlimit_cpu_freq(perfmgr_clusters, cfp_freq);
+		arch_get_cluster_cpus(&cpus_mask, clu_idx);
+		policy[clu_idx] = cpufreq_cpu_get(cpumask_first(&cpus_mask));
+
+		if (cfp_freq[clu_idx].min == -1)
+			policy[clu_idx]->user_policy.min =
+				policy[clu_idx]->cpuinfo.min_freq;
+		else
+			policy[clu_idx]->user_policy.min =
+				cfp_freq[clu_idx].min;
+
+		if (cfp_freq[clu_idx].max == -1)
+			policy[clu_idx]->user_policy.max =
+				policy[clu_idx]->cpuinfo.max_freq;
+		else
+			policy[clu_idx]->user_policy.max =
+				cfp_freq[clu_idx].max;
+
+		cpufreq_cpu_put(policy[clu_idx]);
+		cpufreq_update_policy(policy[clu_idx]->cpu);
+	}
 }
 
 static void cfp_lt_callback(int loading)
@@ -396,6 +424,8 @@ int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 	int i;
 	int clu_idx, opp_idx;
 	int ret = 0;
+	bool rev = (mt_cpufreq_get_freq_by_idx(0, MAX_NR_FREQ - 1) >
+		mt_cpufreq_get_freq_by_idx(0, 0)) ? true : false;
 
 	struct pentry {
 		const char *name;
@@ -453,9 +483,17 @@ int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 			goto out_freq_tbl_opp_alloc_err;
 		}
 
-		for (opp_idx = 0; opp_idx < MAX_NR_FREQ; opp_idx++)
-			freq_tbl[clu_idx][opp_idx] =
-				mt_cpufreq_get_freq_by_idx(clu_idx, opp_idx);
+		for (opp_idx = 0; opp_idx < MAX_NR_FREQ; opp_idx++) {
+			if (rev) {
+				freq_tbl[clu_idx][opp_idx] =
+					mt_cpufreq_get_freq_by_idx(clu_idx,
+						MAX_NR_FREQ - 1 - opp_idx);
+			} else {
+				freq_tbl[clu_idx][opp_idx] =
+					mt_cpufreq_get_freq_by_idx(clu_idx,
+						opp_idx);
+			}
+		}
 	}
 
 	__cfp_enable       = 1;

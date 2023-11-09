@@ -24,5 +24,26 @@ enum rtc_gpio_user_t {
 	RTC_GPIO_USER_PMIC = 12,
 };
 
+#ifdef CONFIG_MT6358_MISC
+void rtc_mark_recovery(void);
+void rtc_mark_kpoc(void);
+void rtc_mark_fast(void);
+int set_rtc_spare_fg_value(int val);
+int get_rtc_spare_fg_value(void);
+int set_rtc_spare0_fg_value(int val);
+int get_rtc_spare0_fg_value(void);
+void rtc_gpio_enable_32k(enum rtc_gpio_user_t user);
+void rtc_gpio_disable_32k(enum rtc_gpio_user_t user);
+#else
+#define rtc_mark_recovey()		do {} while (0)
+#define rtc_mark_kpoc()			do {} while (0)
+#define rtc_mark_fast()			do {} while (0)
+#define set_rtc_spare_fg_value(val)	({ 0; })
+#define get_rtc_spare_fg_value()	({ 0; })
+#define set_rtc_spare0_fg_value(val)	({ 0; })
+#define get_rtc_spare0_fg_value()	({ 0; })
+#define rtc_gpio_enable_32k(user)	do {} while (0)
+#define rtc_gpio_disable_32k(user)	do {} while (0)
+#endif
 
 #endif

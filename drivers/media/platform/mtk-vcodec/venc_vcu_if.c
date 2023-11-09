@@ -218,6 +218,8 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_INIT;
 	out.venc_inst = (unsigned long)vcu;
+	if (vcu->ctx->enc_params.svp_mode)
+		out.reserved = vcu->ctx->enc_params.svp_mode;
 	if (vcu_enc_send_msg(vcu, &out, sizeof(out))) {
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_INIT fail");
 		return -EINVAL;
@@ -343,6 +345,14 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	case VENC_SET_PARAM_HEIF_GRID_SIZE:
 		out.data_item = 1;
 		out.data[0] = enc_param->heif_grid_size;
+		break;
+	case VENC_SET_PARAM_SEC_MODE:
+		out.data_item = 1;
+		out.data[0] = enc_param->svp_mode;
+		break;
+	case VENC_SET_PARAM_TSVC:
+		out.data_item = 1;
+		out.data[0] = enc_param->tsvc;
 		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);

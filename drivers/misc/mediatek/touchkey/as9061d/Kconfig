@@ -1,0 +1,6 @@
+config TOUCHKEY_AS9061D
+	bool "as9061d support"
+	default n
+	help
+	  A touchkey is a device, usually portable and electronic
+	  or electromechanical, that detect glance action a person takes.

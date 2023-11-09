@@ -37,7 +37,7 @@
 
 #define CMDQ_INVALID_THREAD		(-1)
 
-#define CMDQ_MAX_THREAD_COUNT		(24)
+#define CMDQ_MAX_THREAD_COUNT		(16)
 #define CMDQ_MAX_TASK_IN_THREAD		(16)
 #define CMDQ_MAX_READ_SLOT_COUNT	(4)
 #define CMDQ_INIT_FREE_TASK_COUNT	(8)
@@ -405,12 +405,34 @@ struct cmdqMetaBuf {
 
 #define CMDQ_ISP_META_CNT	8
 
+enum CMDQ_SEC_ISP_META_TYPE {
+	CMDQ_SEC_ISP_CQ_TYPE	= 0,
+	CMDQ_SEC_ISP_VIRT_TYPE	= 1,
+	CMDQ_SEC_ISP_TILE_TYPE	= 2,
+	CMDQ_SEC_ISP_BPCI_TYPE	= 3,
+	CMDQ_SEC_ISP_LSCI_TYPE	= 4,
+	CMDQ_SEC_ISP_LCEI_TYPE	= 5,
+	CMDQ_SEC_ISP_DEPI_TYPE	= 6,
+	CMDQ_SEC_ISP_DMGI_TYPE	= 7,
+	CMDQ_SEC_ISP_TYPE_MAX	= 8,
+};
+
 struct cmdqSecIspMeta {
 	struct cmdqMetaBuf ispBufs[CMDQ_ISP_META_CNT];
 	uint64_t CqSecHandle;
 	uint32_t CqSecSize;
-	uint32_t CqDesOft;
-	uint32_t CqVirtOft;
+//	uint32_t CqDesOft;
+//	uint32_t CqVirtOft;
+	/* in order to compatible w/ different ISP version */
+	union {
+		uint32_t CqDesOft;          // isp 5.0
+		uint32_t CQVirtSecBufHdl;   // isp 3.0
+	};
+	union {
+		uint32_t CqVirtOft;          // isp 5.0
+		uint32_t CQVirtSecBufSize;   // isp 3.0
+	};
+
 	uint64_t TpipeSecHandle;
 	uint32_t TpipeSecSize;
 	uint32_t TpipeOft;

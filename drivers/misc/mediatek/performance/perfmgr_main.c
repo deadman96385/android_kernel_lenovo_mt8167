@@ -50,12 +50,10 @@ static int perfmgr_resume(struct device *dev)
 static int perfmgr_remove(struct platform_device *dev)
 {
 #ifdef CONFIG_MTK_BASE_POWER
-	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
-		/*TODO: workaround for k414
-		 * topo_ctrl_exit();
-		 */
-		cpu_ctrl_exit();
-	}
+	/*TODO: workaround for k414
+	 * topo_ctrl_exit();
+	 */
+	cpu_ctrl_exit();
 #endif
 	return 0;
 }
@@ -74,10 +72,8 @@ static struct platform_driver perfmgr_driver = {
 static int perfmgr_main_data_init(void)
 {
 #ifdef CONFIG_MTK_BASE_POWER
-	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
-		/* get cluster number from topo_ctrl */
-		clstr_num = topo_ctrl_get_nr_clusters();
-	}
+	/* get cluster number from topo_ctrl */
+	clstr_num = topo_ctrl_get_nr_clusters();
 #endif
 	return 0;
 }
@@ -101,12 +97,9 @@ static int __init init_perfmgr(void)
 	perfmgr_root = proc_mkdir("perfmgr", NULL);
 	pr_debug("MTK_TOUCH_BOOST function init_perfmgr_touch\n");
 
-#ifdef CONFIG_MTK_BASE_POWER
-	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
-		init_tchbst(perfmgr_root);
-		init_boostctrl(perfmgr_root);
-	}
-#endif
+	init_tchbst(perfmgr_root);
+	init_boostctrl(perfmgr_root);
+
 	init_perfctl(perfmgr_root);
 
 #ifdef CONFIG_MTK_LOAD_TRACKER
@@ -114,4 +107,4 @@ static int __init init_perfmgr(void)
 #endif
 	return 0;
 }
-device_initcall(init_perfmgr);
+late_initcall(init_perfmgr);

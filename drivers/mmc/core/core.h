@@ -132,8 +132,6 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 int mmc_cmdq_erase(struct mmc_cmdq_req *cmdq_req,
 	      struct mmc_card *card, unsigned int from, unsigned int nr,
 	      unsigned int arg);
-void mmc_cmdq_up_rwsem(struct mmc_host *host);
-int mmc_cmdq_down_rwsem(struct mmc_host *host, struct request *rq);
 #endif
 
 struct mmc_async_req *mmc_start_areq(struct mmc_host *host,
@@ -159,7 +157,6 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort);
 void mmc_release_host(struct mmc_host *host);
 void mmc_get_card(struct mmc_card *card);
 void mmc_put_card(struct mmc_card *card);
-int mmc_try_claim_host(struct mmc_host *host, unsigned int delay);
 
 #if defined(CONFIG_MMC_FFU)
 extern int mmc_reinit_oldcard(struct mmc_host *host);

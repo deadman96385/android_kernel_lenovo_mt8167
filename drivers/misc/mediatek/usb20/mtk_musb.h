@@ -102,6 +102,9 @@ extern bool is_saving_mode(void);
 extern bool is_switch_charger(void);
 
 /* host and otg */
+#if IS_ENABLED(CONFIG_TCPC_MT6392)
+extern void mtk_typec_host_init(void);
+#endif
 extern void mt_usb_otg_init(struct musb *musb);
 extern void mt_usb_otg_exit(struct musb *musb);
 extern void mt_usb_init_drvvbus(void);

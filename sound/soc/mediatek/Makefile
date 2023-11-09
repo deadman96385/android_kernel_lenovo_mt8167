@@ -25,15 +25,34 @@ obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
 
 # btcvsd
 obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += common/
+
 obj-$(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT) += common_int/
 obj-$(CONFIG_SND_SOC_MEDIATEK) += common/
-obj-$(CONFIG_SND_SOC_MT2701) += mt2701/
-obj-$(CONFIG_SND_SOC_MT6768) += mt6768/
-obj-$(CONFIG_SND_SOC_MT8168) += mt8168/
-obj-$(CONFIG_SND_SOC_MT6785) += mt6785/
-obj-$(CONFIG_SND_SOC_MT8173) += mt8173/
-obj-$(CONFIG_SND_SOC_MT6885) += mt6885/
 obj-$(CONFIG_SND_SOC_MT8167) += mt8167/
+
+ifeq ($(CONFIG_SND_SOC_MT8168),y)
+# MTK Codec Chip Support
+MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))
+
+# PMIC include path
+ifneq  ($(MTK_CODEC),)
+subdir-ccflags-y += -Werror -Werror -Icodec/$(MTK_CODEC)/
+subdir-ccflags-y += -Werror -I$(src)/common_int
+
+# Update pmic built flow to avoid codec init later than codec probe
+obj-y += codec/$(MTK_CODEC)/
+obj-y += common_int/
+
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+
+# flags for not ready feature, uncomment after ready
+subdir-ccflags-y += -D_GIT318_PMIC_READY
+subdir-ccflags-y += -DAUDIO_USING_WRAP_DRIVER
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/
+endif
+endif
+
 # adsp
 ifeq ($(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/

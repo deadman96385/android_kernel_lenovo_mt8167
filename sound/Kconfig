@@ -54,7 +54,6 @@ config SOUND_OSS_CORE_PRECLAIM
 
 	  If unsure, say Y.
 
-source "sound/oss/dmasound/Kconfig"
 
 if !UML
 
@@ -72,45 +71,7 @@ source "sound/core/Kconfig"
 
 source "sound/drivers/Kconfig"
 
-source "sound/isa/Kconfig"
-
-source "sound/pci/Kconfig"
-
-source "sound/hda/Kconfig"
-
-source "sound/ppc/Kconfig"
-
-source "sound/aoa/Kconfig"
-
-source "sound/arm/Kconfig"
-
-source "sound/atmel/Kconfig"
-
-source "sound/spi/Kconfig"
-
-source "sound/mips/Kconfig"
-
-source "sound/sh/Kconfig"
-
-# the following will depend on the order of config.
-# here assuming USB is defined before ALSA
-source "sound/usb/Kconfig"
-
-source "sound/firewire/Kconfig"
-
-# the following will depend on the order of config.
-# here assuming PCMCIA is defined before ALSA
-source "sound/pcmcia/Kconfig"
-
-source "sound/sparc/Kconfig"
-
-source "sound/parisc/Kconfig"
-
 source "sound/soc/Kconfig"
-
-source "sound/x86/Kconfig"
-
-source "sound/synth/Kconfig"
 
 endif # SND
 
@@ -123,19 +84,9 @@ menuconfig SOUND_PRIME
 
 if SOUND_PRIME
 
-source "sound/oss/Kconfig"
-
 endif # SOUND_PRIME
 
 endif # !UML
 
 endif # SOUND
 
-# AC97_BUS is used from both sound and ucb1400
-config AC97_BUS
-	tristate
-	help
-	  This is used to avoid config and link hard dependencies between the
-	  sound subsystem and other function drivers completely unrelated to
-	  sound although they're sharing the AC97 bus. Concerned drivers
-	  should "select" this.

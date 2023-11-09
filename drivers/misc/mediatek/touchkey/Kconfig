@@ -1,0 +1,3 @@
+
+source "drivers/misc/mediatek/touchkey/as9061d/Kconfig"
+

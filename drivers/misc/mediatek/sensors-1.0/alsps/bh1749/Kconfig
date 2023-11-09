@@ -1,0 +1,19 @@
+
+config MTK_ROHM_BH1749
+	bool "bh1749 for MediaTek package"
+	default n
+	help
+	It support different type sensor
+	in this platform. If this option
+	is set, it will support ambient
+	light sensor bh1749.
+
+
+
+config MTK_ROHM_BH1749_COLOR_TEMPERATURE
+	bool "bh1749 color temperature for MediaTek package"
+	default n
+	help
+	It support different type sensor
+	in this platform. If this option
+	is set, it will support color temperature bh1749.

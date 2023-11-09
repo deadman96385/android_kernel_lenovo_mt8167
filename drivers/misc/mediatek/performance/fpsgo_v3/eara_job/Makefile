@@ -26,6 +26,6 @@ ccflags-y += \
         -I$(srctree)/drivers/misc/mediatek/base/power/include \
         -I$(FSTB_TOP)/ \
         -I$(EARA_TOP)/include/ \
-        -I$(srctree)/drivers/misc/mediatek/vpu/$(MTK_PLATFORM) \
+        -I$(srctree)/drivers/misc/mediatek/vpu/vp6/$(MTK_PLATFORM) \
         -I$(srctree)/drivers/misc/mediatek/mdla/1.0 \
         -I$(srctree)/drivers/misc/mediatek/performance/observer

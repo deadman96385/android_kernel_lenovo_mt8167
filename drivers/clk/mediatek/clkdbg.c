@@ -1037,6 +1037,42 @@ static int parse_reg_val_from_cmd(void __iomem **preg, unsigned long *pval)
 	return r;
 }
 
+static int parse_paras_from_cmd(
+			void __iomem **preg, unsigned long *pval1,
+			unsigned long *pval2, unsigned long *pval3)
+{
+	char cmd[sizeof(last_cmd)];
+	char *c = cmd;
+	char *ign;
+	char *reg_str;
+	char *val1, *val2, *val3;
+	int r = 0;
+
+	strncpy(cmd, last_cmd, sizeof(cmd));
+	cmd[sizeof(cmd) - 1UL] = '\0';
+
+	ign = strsep(&c, " ");
+	reg_str = strsep(&c, " ");
+	val1 = strsep(&c, " ");
+	val2 = strsep(&c, " ");
+	val3 = strsep(&c, " ");
+
+	if (preg != NULL && reg_str != NULL) {
+		*preg = reg_from_str(reg_str);
+		if (*preg != NULL)
+			r++;
+	}
+
+	if (pval1 != NULL && val1 != NULL && kstrtoul(val1, 0, pval1) == 0)
+		r++;
+	if (pval2 != NULL && val2 != NULL && kstrtoul(val2, 0, pval2) == 0)
+		r++;
+	if (pval3 != NULL && val3 != NULL && kstrtoul(val3, 0, pval3) == 0)
+		r++;
+
+	return r;
+}
+
 static int clkdbg_reg_read(struct seq_file *s, void *v)
 {
 	void __iomem *reg;
@@ -1049,6 +1085,57 @@ static int clkdbg_reg_read(struct seq_file *s, void *v)
 
 	val = clk_readl(reg);
 	seq_printf(s, "0x%08x\n", (u32)val);
+
+	return 0;
+}
+
+static int clkdbg_reg_dump(struct seq_file *s, void *v)
+{
+	void __iomem *reg;
+	unsigned long val;
+	unsigned long i, j, unit_4, extra;
+	unsigned long addr, size;
+
+	if (parse_reg_val_from_cmd(&reg, &val) != 2)
+		return 0;
+
+	addr = (unsigned long)reg;
+	size = val;	/* size: unit as 4-bytes*/
+	/* aligned with 4-bytes */
+	addr = (addr & ~3);
+
+	seq_printf(s, "VA:0x%lx, size:0x%lx\n", addr, size);
+
+	if (addr != (unsigned long)reg) {
+		size += 1;
+		seq_printf(s, "***Warn***: Align 4B: VA:0x%lx, size:0x%lx\n",
+				addr, size);
+	}
+
+	unit_4 = size / 4;
+	extra = size - unit_4 * 4;
+	for (i = 0; i < size - extra; i += 4) {
+		unsigned long temp = addr + i * 4;
+
+		seq_printf(s, "0x%p", (void *)temp);
+		seq_printf(s, " 0x%08x", (u32)clk_readl((void *)temp));
+		seq_printf(s, " 0x%08x", (u32)clk_readl((void *)(temp + 0x4)));
+		seq_printf(s, " 0x%08x", (u32)clk_readl((void *)(temp + 0x8)));
+		seq_printf(s, " 0x%08x", (u32)clk_readl((void *)(temp + 0xC)));
+		seq_puts(s, "\n");
+	}
+
+	if (extra) {
+		unsigned long temp_addr = addr + i * 4;
+
+		seq_printf(s, "0x%p", (void *)temp_addr);
+		for (j = 0; j < extra; ++j) {
+			u32 v = (u32)clk_readl((void *)(temp_addr + 0x4 * j));
+
+			seq_printf(s, " 0x%08x", v);
+		}
+		seq_puts(s, "\n");
+	}
 
 	return 0;
 }
@@ -1066,6 +1153,43 @@ static int clkdbg_reg_write(struct seq_file *s, void *v)
 	clk_writel(reg, val);
 	val = clk_readl(reg);
 	seq_printf(s, "0x%08x\n", (u32)val);
+
+	return 0;
+}
+
+static int clkdbg_reg_update(struct seq_file *s, void *v)
+{
+	void __iomem *reg;
+	unsigned long sbits, ebits, val;
+	unsigned long addr;
+	unsigned long temp;
+
+	if (parse_paras_from_cmd(&reg, &sbits, &ebits, &val) != 4)
+		return 0;
+
+	addr = (unsigned long)reg;
+
+	seq_printf(s, "VA:0x%lx, sbits:%lu, ebits:%lu, val:0x%lx\n",
+			addr, sbits, ebits, val);
+	if (addr & 0x3) {
+		seq_printf(s, "VA: 0x%lx should align to 4 bytes!\n", addr);
+		return 0;
+	}
+
+	if (sbits > ebits || sbits < 0 || sbits > 31
+	  || ebits < 0 || ebits > 31
+	  || val > (1 << (ebits - sbits + 1)) - 1) {
+		seq_printf(s, "args error!: sbits:%lu, ebits:%lu, val:0x%lx\n",
+				sbits, ebits, val);
+		return 0;
+	}
+
+	temp = clk_readl(reg);
+	temp &= ~GENMASK(ebits, sbits);
+	temp |= (val << sbits);
+	clk_writel(reg, temp);
+
+	seq_printf(s, "Readback:0x%p 0x%08x.\n", reg, (u32)clk_readl(reg));
 
 	return 0;
 }
@@ -2120,7 +2244,9 @@ static const struct cmd_fn common_cmds[] = {
 	CMDFN("set_parent", clkdbg_set_parent),
 	CMDFN("set_rate", clkdbg_set_rate),
 	CMDFN("reg_read", clkdbg_reg_read),
+	CMDFN("reg_dump", clkdbg_reg_dump),
 	CMDFN("reg_write", clkdbg_reg_write),
+	CMDFN("reg_update", clkdbg_reg_update),
 	CMDFN("reg_set", clkdbg_reg_set),
 	CMDFN("reg_clr", clkdbg_reg_clr),
 	CMDFN("show_flags", clkdbg_show_flags),

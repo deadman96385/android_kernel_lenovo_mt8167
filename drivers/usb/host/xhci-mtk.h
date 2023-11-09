@@ -133,6 +133,10 @@ struct xhci_hcd_mtk {
 	int wakeup_src;
 	bool lpm_support;
 	struct dentry *debugfs_root;
+#if IS_ENABLED(CONFIG_USB_MTK_HQA_TEST)
+	int test_mode;
+	void __iomem *ip_base;
+#endif
 };
 
 static inline struct xhci_hcd_mtk *hcd_to_mtk(struct usb_hcd *hcd)

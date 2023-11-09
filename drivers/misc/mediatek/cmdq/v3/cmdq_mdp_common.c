@@ -32,9 +32,9 @@
 #include <linux/pm_qos.h>
 #include <linux/math64.h>
 #include "cmdq_mdp_pmqos.h"
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef MTK_CMDQ_PMQOS
 #include <mmdvfs_pmqos.h>
-#endif	/* CONFIG_MTK_SMI_EXT */
+#endif	/* MTK_CMDQ_PMQOS */
 
 #include "cmdq_helper_ext.h"
 
@@ -56,10 +56,10 @@ static struct pm_qos_request isp_bw_qos_request[MDP_TOTAL_THREAD];
 static struct pm_qos_request mdp_clk_qos_request[MDP_TOTAL_THREAD];
 static struct pm_qos_request isp_clk_qos_request[MDP_TOTAL_THREAD];
 
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef MTK_CMDQ_PMQOS
 static u64 g_freq_steps[MAX_FREQ_STEP];
 static u32 step_size;
-#endif	/* CONFIG_MTK_SMI_EXT */
+#endif	/* MTK_CMDQ_PMQOS */
 
 #ifdef PMQOS_VERSION2
 #ifdef CONFIG_MTK_SMI_EXT
@@ -1344,7 +1344,7 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 	s32 status;
 
 	status = cmdq_mdp_flush_async(desc, user_space, &handle);
-	if (!handle) {
+	if (!handle || status < 0) {
 		CMDQ_ERR("mdp flush async failed:%d\n", status);
 		return status;
 	}
@@ -1560,7 +1560,7 @@ int cmdq_mdp_status_dump(struct notifier_block *nb,
 
 static void cmdq_mdp_init_pmqos(void)
 {
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef MTK_CMDQ_PMQOS
 	s32 i = 0;
 	s32 result = 0;
 	/* INIT_LIST_HEAD(&gCmdqMdpContext.mdp_tasks);*/
@@ -1605,7 +1605,7 @@ static void cmdq_mdp_init_pmqos(void)
 		g_freq_steps[0] = 700;
 	if (result < 0)
 		CMDQ_ERR("get MMDVFS freq steps failed, result: %d\n", result);
-#endif	/* CONFIG_MTK_SMI_EXT */
+#endif	/* MTK_CMDQ_PMQOS */
 }
 
 void cmdq_mdp_init(void)
@@ -1655,8 +1655,9 @@ void cmdq_mdp_init(void)
 	cmdq_mdp_pool_create();
 }
 
-void cmdq_mdp_deinit(void)
+void cmdq_mdp_deinit_pmqos(void)
 {
+#ifdef MTK_CMDQ_PMQOS
 	s32 i = 0;
 
 	for (i = 0; i < MDP_TOTAL_THREAD; i++) {
@@ -1674,6 +1675,7 @@ void cmdq_mdp_deinit(void)
 	}
 
 	cmdq_mdp_pool_clear();
+#endif	/* MTK_CMDQ_PMQOS */
 }
 
 /* Platform dependent function */
@@ -2048,7 +2050,7 @@ void cmdq_mdp_unmap_mmsys_VA(void)
 static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef MTK_CMDQ_PMQOS
 	struct mdp_pmqos *mdp_curr_pmqos;
 	struct mdp_pmqos *target_pmqos = NULL;
 	struct mdp_pmqos *mdp_list_pmqos;
@@ -2076,7 +2078,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 #endif	/* MDP_MMPATH */
 
 	/* check engine status */
-	cmdq_mdp_get_func()->CheckHwStatus(handle);
+	// cmdq_mdp_get_func()->CheckHwStatus(handle);
 
 	if (!handle->prop_addr)
 		return;
@@ -2323,7 +2325,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	smi_larb_mon_act_cnt();
 #endif
 #endif
-#endif	/* CONFIG_MTK_SMI_EXT */
+#endif	/* MTK_CMDQ_PMQOS */
 }
 
 static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
@@ -2341,7 +2343,7 @@ static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
 static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef MTK_CMDQ_PMQOS
 	struct mdp_pmqos *mdp_curr_pmqos;
 	struct mdp_pmqos *target_pmqos;
 	struct mdp_pmqos *mdp_list_pmqos;
@@ -2611,7 +2613,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		}
 	}
 #endif	/* MDP_MMPATH */
-#endif	/* CONFIG_MTK_SMI_EXT */
+#endif	/* MTK_CMDQ_PMQOS */
 }
 
 static void cmdq_mdp_isp_end_task_virtual(struct cmdqRecStruct *handle,

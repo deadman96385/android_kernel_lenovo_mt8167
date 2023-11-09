@@ -1,0 +1,1 @@
+obj-$(CONFIG_GESTURE_APDS9500)	+=  apds9500.o

@@ -28,6 +28,9 @@ enum  {
 
 extern void (*rsu_cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 extern void (*rsu_getusage_fp)(__s32 *devusage, __u32 *bwusage, __u32 pid);
+extern unsigned int mt_gpufreq_get_cur_freq(void);
+extern unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx);
+extern int mt_gpufreq_get_cur_ceiling_idx(void);
 
 int __init rs_usage_init(struct dentry *rs_debugfs_dir,
 			struct proc_dir_entry *hps_dir);

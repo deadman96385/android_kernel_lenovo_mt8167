@@ -391,6 +391,7 @@ config MACH_MT8168
 	bool "MediaTek MT8168"
 	select GENERIC_CLOCKEVENTS
 	select ARM_AMBA
+	select ARM_CPUIDLE
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG
 	select GENERIC_SCHED_CLOCK
@@ -405,7 +406,12 @@ config MACH_MT8168
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
 	select MTK_BOUNCING_CHECK if AEE_FEATURE
-	select MTK_TIMER_APXGPT
+	select MTK_DRAMC
+	select MTK_EMI
+	select OVERLAY_FS
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_L2C_PARITY_CHECK
         help
           This enables support for MediaTek MT8168
           Support for aarch64 Architecture

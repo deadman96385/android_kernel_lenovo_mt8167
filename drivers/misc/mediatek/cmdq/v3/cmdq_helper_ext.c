@@ -2404,6 +2404,8 @@ s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 		msb = physAddr & GCE_BASE_PA;
 		if (msb == GCE_BASE_PA)
 			subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
+		else if ((physAddr & DISP_PWM_PA_BASE) == DISP_PWM_PA_BASE)
+			subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
 		else
 			CMDQ_ERR("unrecognized subsys, physAddr:0x%08x\n",
 				physAddr);
@@ -5206,17 +5208,28 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	if (ret != 0) {
 		sec_thread[0] = CMDQ_MIN_SECURE_THREAD_ID;
 		sec_thread[1] = CMDQ_MIN_SECURE_THREAD_ID +
-			CMDQ_MAX_SECURE_THREAD_COUNT;
+			CMDQ_MAX_SECURE_THREAD_COUNT - 1;
 	}
 	CMDQ_LOG("sec thread index %u to %u\n", sec_thread[0], sec_thread[1]);
 #endif
 
 	/* for display we start from thread 0 */
 	for (i = 0; i < CMDQ_MAX_THREAD_COUNT; i++) {
+		/* thread 13 /14 for venc & vdec use. */
+		if (i == 13 || i == 14)
+			continue;
+
+		#ifdef CONFIG_DRM_MEDIATEK
+		/* DRM display no need to request channel in cmdq. */
+		if (i < 5)
+			continue;
+		#endif
+
 		clt = cmdq_mbox_create(dev, i);
 		if (!clt || IS_ERR(clt)) {
 			CMDQ_LOG("register mbox stop:0x%p idx:%u\n", clt, i);
-			break;
+			//break;
+			continue;
 		}
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 		/* if channel is not valid in normal controller, check sec */
@@ -5235,8 +5248,17 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		}
 
 		cmdq_clients[chan_id] = clt;
-		CMDQ_LOG("chan %d 0x%p dev:0x%p\n",
-			chan_id, cmdq_clients[chan_id]->chan, dev);
+		CMDQ_LOG("chan %u 0x%p dev:0x%p mbox:%p mbox->dev:%p\n",
+			chan_id, cmdq_clients[chan_id]->chan, dev,
+			cmdq_clients[chan_id]->chan->mbox,
+			cmdq_clients[chan_id]->chan->mbox->dev);
+
+		if (!cmdq_clients[chan_id]->chan->mbox ||
+			!cmdq_clients[chan_id]->chan->mbox->dev)
+			CMDQ_AEE("CMDQ",
+				"chan:%u mbox:%p or mbox->dev:%p invalid!!",
+				chan_id, cmdq_clients[chan_id]->chan->mbox,
+				cmdq_clients[chan_id]->chan->mbox->dev);
 	}
 
 	cmdq_client_base = cmdq_register_device(dev);
